@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -22,7 +23,7 @@ func New() *Registry {
 func (r *Registry) Add(res *Resource) {
 	key := resourceKey(res.Kind, res.Namespace, res.Name)
 	if _, exists := r.resources[key]; exists {
-		fmt.Printf("warn: duplicate resource %s, later entry wins\n", key)
+		fmt.Fprintf(os.Stderr, "warn: duplicate resource %s, later entry wins\n", key)
 	} else {
 		r.all = append(r.all, res)
 	}

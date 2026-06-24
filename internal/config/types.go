@@ -18,12 +18,14 @@ type FieldType struct {
 // FieldTarget maps a resource kind to the field path(s) containing the reference.
 // Use Path for a fully merged "registry/repo:tag" value.
 // Use NamePath + TagPath when the image name and tag live in separate fields.
+// SemverPath is tried if TagPath is empty (e.g. OCIRepository.spec.ref.semver).
 type FieldTarget struct {
-	Group    string `yaml:"group"`    // empty string = core group
-	Kind     string `yaml:"kind"`
-	Path     string `yaml:"path"`     // e.g. spec/containers[*]/image
-	NamePath string `yaml:"namePath"` // e.g. spec/image/repository
-	TagPath  string `yaml:"tagPath"`  // e.g. spec/image/tag
+	Group      string `yaml:"group"`      // empty string = core group
+	Kind       string `yaml:"kind"`
+	Path       string `yaml:"path"`       // e.g. spec/containers[*]/image
+	NamePath   string `yaml:"namePath"`   // e.g. spec/image/repository
+	TagPath    string `yaml:"tagPath"`    // e.g. spec/image/tag
+	SemverPath string `yaml:"semverPath"` // e.g. spec/ref/semver, used when tagPath is empty
 }
 
 // Synthesizer declares that a resource implicitly creates another resource at runtime.

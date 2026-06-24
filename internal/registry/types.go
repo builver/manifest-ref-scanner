@@ -31,37 +31,37 @@ type ResourceRef struct {
 // Artifact is a discovered OCI reference with its full resolution chain.
 type Artifact struct {
 	// FieldType is the configured name (e.g. "containerImage", "ociArtifact").
-	FieldType string `yaml:"fieldType"`
+	FieldType string `yaml:"fieldType" json:"fieldType"`
 	// Raw is the unmodified string value found in the manifest.
-	Raw string `yaml:"raw"`
+	Raw string `yaml:"raw" json:"raw"`
 	// Parsed components — empty strings mean the value was not present.
-	Registry   string `yaml:"registry,omitempty"`
-	Repository string `yaml:"repository,omitempty"`
-	Tag        string `yaml:"tag,omitempty"`
-	Digest     string `yaml:"digest,omitempty"`
+	Registry   string `yaml:"registry,omitempty"   json:"registry,omitempty"`
+	Repository string `yaml:"repository,omitempty" json:"repository,omitempty"`
+	Tag        string `yaml:"tag,omitempty"        json:"tag,omitempty"`
+	Digest     string `yaml:"digest,omitempty"     json:"digest,omitempty"`
 	// Ref holds non-tag qualifiers like semver, digest, etc.
-	Ref map[string]string `yaml:"ref,omitempty"`
+	Ref map[string]string `yaml:"ref,omitempty" json:"ref,omitempty"`
 
 	// Resolution is the ordered chain of resources traversed to find this artifact.
 	// Index 0 is always the resource that directly contains the reference value.
-	Resolution []ResolutionStep `yaml:"resolution"`
+	Resolution []ResolutionStep `yaml:"resolution" json:"resolution"`
 
 	// Warnings are non-fatal issues encountered while resolving this artifact.
-	Warnings []string `yaml:"warnings,omitempty"`
+	Warnings []string `yaml:"warnings,omitempty" json:"warnings,omitempty"`
 }
 
 // ResolutionStep records one hop in the reference chain.
 type ResolutionStep struct {
-	Kind      string `yaml:"kind"`
-	Name      string `yaml:"name"`
-	Namespace string `yaml:"namespace,omitempty"`
-	File      string `yaml:"file,omitempty"`
+	Kind      string `yaml:"kind" json:"kind"`
+	Name      string `yaml:"name" json:"name"`
+	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	File      string `yaml:"file,omitempty"      json:"file,omitempty"`
 	// Via is the field path that pointed to the next resource.
-	Via string `yaml:"via,omitempty"`
+	Via string `yaml:"via,omitempty" json:"via,omitempty"`
 	// Synthesized means this resource was not in any file; it was inferred.
-	Synthesized bool `yaml:"synthesized,omitempty"`
+	Synthesized bool `yaml:"synthesized,omitempty" json:"synthesized,omitempty"`
 	// Inline means this resource was nested inside a ResourceSet.
-	Inline bool `yaml:"inline,omitempty"`
+	Inline bool `yaml:"inline,omitempty" json:"inline,omitempty"`
 	// Input is the ResourceSet input that produced this resource.
-	Input map[string]interface{} `yaml:"input,omitempty"`
+	Input map[string]interface{} `yaml:"input,omitempty" json:"input,omitempty"`
 }
