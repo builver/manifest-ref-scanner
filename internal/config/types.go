@@ -5,7 +5,7 @@ type Config struct {
 	FieldTypes           []FieldType           `yaml:"fieldTypes"`
 	Synthesizers         []Synthesizer         `yaml:"synthesizers"`
 	Resolvers            []Resolver            `yaml:"resolvers"`
-	ResourceSetExpanders []ResourceSetExpander `yaml:"resourceSetExpanders"`
+	InlineExpanders []InlineExpander `yaml:"inlineExpanders"`
 }
 
 // FieldType defines a named category of reference (e.g. "containerImage")
@@ -17,15 +17,14 @@ type FieldType struct {
 
 // FieldTarget maps a resource kind to the field path(s) containing the reference.
 // Use Path for a fully merged "registry/repo:tag" value.
-// Use NamePath + TagPath when the image name and tag live in separate fields.
-// SemverPath is tried if TagPath is empty (e.g. OCIRepository.spec.ref.semver).
+// Use NamePath + TagPaths when the image name and tag live in separate fields.
+// TagPaths is tried in order; the first non-empty value wins.
 type FieldTarget struct {
-	Group      string `yaml:"group"`      // empty string = core group
-	Kind       string `yaml:"kind"`
-	Path       string `yaml:"path"`       // e.g. spec/containers[*]/image
-	NamePath   string `yaml:"namePath"`   // e.g. spec/image/repository
-	TagPath    string `yaml:"tagPath"`    // e.g. spec/image/tag
-	SemverPath string `yaml:"semverPath"` // e.g. spec/ref/semver, used when tagPath is empty
+	Group    string   `yaml:"group"`    // empty string = core group
+	Kind     string   `yaml:"kind"`
+	Path     string   `yaml:"path"`     // e.g. spec/containers[*]/image
+	NamePath string   `yaml:"namePath"` // e.g. spec/image/repository
+	TagPaths []string `yaml:"tagPaths"` // e.g. ["spec/ref/tag", "spec/ref/semver"]
 }
 
 // Synthesizer declares that a resource implicitly creates another resource at runtime.
@@ -65,9 +64,10 @@ type ResolveTarget struct {
 	Namespace string `yaml:"namespace"` // e.g. "{{ .namespace | default fromNamespace }}"
 }
 
-// ResourceSetExpander teaches the scanner how to extract inline resource templates
-// from a ResourceSet-style resource and materialize them per input.
-type ResourceSetExpander struct {
+// InlineExpander teaches the scanner how to extract inline resource templates
+// from a resource that embeds child resources (e.g. Flux ResourceSet) and
+// materialize one expanded copy per input entry.
+type InlineExpander struct {
 	FromGroup          string `yaml:"fromGroup"`
 	FromKind           string `yaml:"fromKind"`
 	ResourcesPath      string `yaml:"resourcesPath"`      // e.g. spec/resources

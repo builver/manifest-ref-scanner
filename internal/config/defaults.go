@@ -36,7 +36,7 @@ func DefaultConfig() *Config {
 				Name: "ociArtifact",
 				Targets: []FieldTarget{
 					// Flux OCIRepository — the canonical OCI source
-					{Group: "source.toolkit.fluxcd.io", Kind: "OCIRepository", Path: "spec/url", TagPath: "spec/ref/tag", SemverPath: "spec/ref/semver"},
+					{Group: "source.toolkit.fluxcd.io", Kind: "OCIRepository", Path: "spec/url", TagPaths: []string{"spec/ref/tag", "spec/ref/semver"}},
 					// FluxInstance distribution artifact (fully merged ref)
 					{Group: "fluxcd.controlplane.io", Kind: "FluxInstance", Path: "spec/distribution/artifact"},
 					// HelmRepository (OCI-based)
@@ -104,7 +104,7 @@ func DefaultConfig() *Config {
 			},
 		},
 
-		ResourceSetExpanders: []ResourceSetExpander{
+		InlineExpanders: []InlineExpander{
 			{
 				FromGroup:          "fluxcd.controlplane.io",
 				FromKind:           "ResourceSet",
@@ -137,6 +137,6 @@ func Merge(base, overlay *Config) *Config {
 		FieldTypes:           append(append([]FieldType{}, base.FieldTypes...), overlay.FieldTypes...),
 		Synthesizers:         append(append([]Synthesizer{}, base.Synthesizers...), overlay.Synthesizers...),
 		Resolvers:            append(append([]Resolver{}, base.Resolvers...), overlay.Resolvers...),
-		ResourceSetExpanders: append(append([]ResourceSetExpander{}, base.ResourceSetExpanders...), overlay.ResourceSetExpanders...),
+		InlineExpanders: append(append([]InlineExpander{}, base.InlineExpanders...), overlay.InlineExpanders...),
 	}
 }

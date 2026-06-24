@@ -1,0 +1,12 @@
+apiVersion: fluxcd.controlplane.io/v1
+kind: FluxInstance
+metadata:
+  name: flux
+  namespace: flux-system
+spec:
+  distribution:
+    artifact: "oci://ghcr.io/example/flux-manifests:v2.0.0"
+  sync:
+    kind: OCIRepository
+    url: "oci://ghcr.io/example/my-gitops"
+    ref: "latest"

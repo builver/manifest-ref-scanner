@@ -147,29 +147,28 @@ func extractFromTargetWithChain(
 	case target.NamePath != "":
 		// Fully split: separate name and tag paths
 		names := patheval.Get(res.Raw, target.NamePath)
-		tags := patheval.Get(res.Raw, target.TagPath)
 		for i, name := range names {
 			tag := ""
-			if i < len(tags) {
-				tag = tags[i]
+			for _, tp := range target.TagPaths {
+				vals := patheval.Get(res.Raw, tp)
+				if i < len(vals) && vals[i] != "" {
+					tag = vals[i]
+					break
+				}
 			}
 			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain))
 		}
 
-	case target.Path != "" && target.TagPath != "":
-		// URL in Path, tag in TagPath (fallback to SemverPath)
+	case target.Path != "" && len(target.TagPaths) > 0:
+		// URL in Path, tag resolved from TagPaths in order (first non-empty wins)
 		names := patheval.Get(res.Raw, target.Path)
-		tags := patheval.Get(res.Raw, target.TagPath)
 		for i, name := range names {
 			tag := ""
-			if i < len(tags) {
-				tag = tags[i]
-			}
-			if tag == "" && target.SemverPath != "" {
-				semvers := patheval.Get(res.Raw, target.SemverPath)
-				if i < len(semvers) && semvers[i] != "" {
-					arts = append(arts, buildArtifact(fieldType, name, "", map[string]string{"semver": semvers[i]}, fullChain))
-					continue
+			for _, tp := range target.TagPaths {
+				vals := patheval.Get(res.Raw, tp)
+				if i < len(vals) && vals[i] != "" {
+					tag = vals[i]
+					break
 				}
 			}
 			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain))

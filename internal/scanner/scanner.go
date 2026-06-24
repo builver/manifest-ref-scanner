@@ -30,7 +30,7 @@ func Scan(root string, cfg *config.Config) (*Result, error) {
 		}
 	}
 
-	// Pass 1b: expand ResourceSets → adds inline resources
+	// Pass 1b: expand inline resource templates → adds inline resources
 	if err := expander.Expand(reg, cfg); err != nil {
 		return nil, err
 	}

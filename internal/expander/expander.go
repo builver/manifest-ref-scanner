@@ -10,16 +10,16 @@ import (
 	"github.com/patri/manifest-ref-scanner/internal/registry"
 )
 
-// Expand processes ResourceSet-style resources: for each configured expander rule,
-// it extracts inline resource templates and materializes one copy per input entry.
+// Expand processes resources that embed inline child templates: for each configured
+// expander rule, it extracts those templates and materializes one copy per input entry.
 func Expand(reg *registry.Registry, cfg *config.Config) error {
 	for _, res := range reg.All() {
 		group := registry.GroupFromAPIVersion(res.APIVersion)
-		for _, exp := range cfg.ResourceSetExpanders {
+		for _, exp := range cfg.InlineExpanders {
 			if exp.FromGroup != group || exp.FromKind != res.Kind {
 				continue
 			}
-			if err := expandResourceSet(reg, exp, res); err != nil {
+			if err := expandInline(reg, exp, res); err != nil {
 				return err
 			}
 		}
@@ -27,7 +27,7 @@ func Expand(reg *registry.Registry, cfg *config.Config) error {
 	return nil
 }
 
-func expandResourceSet(reg *registry.Registry, exp config.ResourceSetExpander, res *registry.Resource) error {
+func expandInline(reg *registry.Registry, exp config.InlineExpander, res *registry.Resource) error {
 	inputs := extractList(res.Raw, exp.InputsPath)
 	if len(inputs) == 0 {
 		inputs = []map[string]interface{}{nil} // single pass with no substitution
