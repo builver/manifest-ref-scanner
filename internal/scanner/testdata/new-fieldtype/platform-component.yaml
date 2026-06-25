@@ -1,0 +1,8 @@
+apiVersion: platform.example.com/v1alpha1
+kind: PlatformComponent
+metadata:
+  name: api-server
+  namespace: platform
+spec:
+  image: registry.example.com/api-server:v4.0.0
+  replicas: 3

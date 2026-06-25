@@ -1,0 +1,25 @@
+# Expand inline OCIRepository templates from ApplicationSet resources.
+#
+# Use case: your platform team ships an ApplicationSet CRD that acts as a
+# meta-resource: it holds a list of environment variable sets (spec.environments)
+# and a list of Kubernetes resource templates (spec.templates).  At runtime the
+# controller expands one copy of each template per environment entry, substituting
+# << inputs.field >> placeholders with the matching environment values.
+#
+# This mirrors the built-in support for Flux ResourceSet but uses a different
+# CRD group, kind, and field names.
+#
+# Template substitution syntax: << inputs.<field> >>
+# Each entry in spec.environments is one "inputs" object whose keys map to
+# placeholder names in the templates.
+#
+# Usage:
+#   manifest-ref-scanner --config inline-expander-app-set.yaml <path>
+
+inlineExpanders:
+  - fromGroup: platform.example.com
+    fromKind: ApplicationSet
+    resourcesPath: spec/templates
+    inputsPath: spec/environments
+    templateDelimLeft: "<<"
+    templateDelimRight: ">>"

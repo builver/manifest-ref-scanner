@@ -1,0 +1,21 @@
+apiVersion: platform.example.com/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: my-apps
+  namespace: default
+spec:
+  environments:
+    - name: staging
+      tag: v7.0.0-staging
+    - name: production
+      tag: v7.0.0-prod
+  templates:
+    - apiVersion: source.toolkit.fluxcd.io/v1
+      kind: OCIRepository
+      metadata:
+        name: app-<< inputs.name >>
+        namespace: default
+      spec:
+        url: oci://registry.example.com/myapp
+        ref:
+          tag: << inputs.tag >>

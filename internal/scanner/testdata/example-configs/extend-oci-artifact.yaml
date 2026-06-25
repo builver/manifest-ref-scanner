@@ -1,0 +1,17 @@
+# Extend the built-in "ociArtifact" field type to also extract OCI URLs from a
+# custom ArtifactSource CRD.
+#
+# Use case: your platform team ships a custom controller that introduces its own
+# CRD for declaring OCI artifact sources. By adding a new target under the
+# existing "ociArtifact" field type the scanner treats ArtifactSource exactly
+# like a standard OCIRepository for discovery and chain-following purposes.
+#
+# Usage:
+#   manifest-ref-scanner --config extend-oci-artifact.yaml <path>
+
+fieldTypes:
+  - name: ociArtifact
+    targets:
+      - group: platform.example.com
+        kind: ArtifactSource
+        path: spec/artifactUrl

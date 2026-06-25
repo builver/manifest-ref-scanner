@@ -1,0 +1,10 @@
+apiVersion: deploy.example.com/v1alpha1
+kind: AppDeployment
+metadata:
+  name: my-app
+  namespace: default
+spec:
+  sourceRef:
+    kind: ArtifactBundle
+    name: my-bundle
+    namespace: default

@@ -1,0 +1,9 @@
+apiVersion: deploy.example.com/v1alpha1
+kind: ArtifactBundle
+metadata:
+  name: my-bundle
+  namespace: default
+spec:
+  url: oci://registry.example.com/app-bundle
+  ref:
+    tag: v6.0.0

@@ -1,0 +1,8 @@
+apiVersion: platform.example.com/v1alpha1
+kind: GitOpsEnvironment
+metadata:
+  name: staging
+  namespace: apps
+spec:
+  artifactRepo: oci://registry.example.com/gitops/staging
+  version: v5.0.0

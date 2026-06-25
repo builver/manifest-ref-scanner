@@ -1,0 +1,7 @@
+apiVersion: platform.example.com/v1alpha1
+kind: ArtifactSource
+metadata:
+  name: my-artifacts
+  namespace: default
+spec:
+  artifactUrl: oci://registry.example.com/my-artifacts:v2.0.0

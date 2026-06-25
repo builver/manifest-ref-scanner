@@ -1,0 +1,28 @@
+# Teach the scanner that a GitOpsEnvironment controller implicitly creates a
+# companion OCIRepository named "<env-name>-artifacts" in the same namespace.
+#
+# Use case: your platform controller watches GitOpsEnvironment resources and
+# automatically provisions an OCIRepository that Flux Kustomizations then
+# reference via sourceRef.  Without this synthesizer the scanner would report
+# those sourceRef chains as "unresolved" because the OCIRepository never
+# appears in any manifest file.
+#
+# Template variables reference the GitOpsEnvironment's own fields using
+# Go template syntax ({{.field.path}}).
+#
+# Usage:
+#   manifest-ref-scanner --config synthesizer-gitops-env.yaml <path>
+
+synthesizers:
+  - name: gitopsEnvArtifacts
+    fromGroup: platform.example.com
+    fromKind: GitOpsEnvironment
+    emits:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: OCIRepository
+      name: "{{.metadata.name}}-artifacts"
+      namespace: "{{.metadata.namespace}}"
+      spec:
+        url: "{{.spec.artifactRepo}}"
+        ref:
+          tag: "{{.spec.version}}"

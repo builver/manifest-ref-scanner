@@ -1,0 +1,17 @@
+# Define a new field type "platformImage" that extracts container image references
+# from a custom PlatformComponent CRD.
+#
+# Use case: your organisation uses a higher-level abstraction (PlatformComponent)
+# instead of bare Deployments. The scanner does not know about this CRD by default.
+# Adding a new field type teaches it to extract images from spec.image on those
+# resources so they show up alongside standard Deployment container images.
+#
+# Usage:
+#   manifest-ref-scanner --config new-fieldtype-platform-image.yaml <path>
+
+fieldTypes:
+  - name: platformImage
+    targets:
+      - group: platform.example.com
+        kind: PlatformComponent
+        path: spec/image

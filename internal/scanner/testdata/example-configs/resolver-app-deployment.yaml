@@ -1,0 +1,34 @@
+# Register ArtifactBundle as an OCI artifact source and teach the scanner to
+# follow spec.sourceRef from AppDeployment to ArtifactBundle.
+#
+# Use case: your internal CD system introduces its own pair of CRDs:
+#   - ArtifactBundle  — declares an OCI source (like OCIRepository)
+#   - AppDeployment   — references an ArtifactBundle via spec.sourceRef
+#
+# Two additions are needed:
+#   1. A new FieldTarget so the scanner knows where ArtifactBundle stores its URL.
+#   2. A Resolver so the scanner follows the sourceRef from AppDeployment
+#      to ArtifactBundle and extracts the final OCI ref.
+#
+# Usage:
+#   manifest-ref-scanner --config resolver-app-deployment.yaml <path>
+
+fieldTypes:
+  - name: ociArtifact
+    targets:
+      - group: deploy.example.com
+        kind: ArtifactBundle
+        path: spec/url
+        tagPaths:
+          - spec/ref/tag
+          - spec/ref/semver
+
+resolvers:
+  - name: appDeploymentSourceRef
+    fromGroup: deploy.example.com
+    fromKind: AppDeployment
+    path: spec/sourceRef
+    resolves:
+      kind: "{{.kind}}"
+      name: "{{.name}}"
+      namespace: "{{.namespace}}"
