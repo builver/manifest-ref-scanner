@@ -39,7 +39,14 @@ func Set(obj map[string]interface{}, path string, value interface{}) {
 }
 
 func splitPath(path string) []string {
-	return strings.Split(path, "/")
+	parts := strings.Split(path, "/")
+	out := parts[:0]
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func walkAny(current []interface{}, segs []string) []interface{} {

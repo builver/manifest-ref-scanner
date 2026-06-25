@@ -86,10 +86,10 @@ func followResolver(
 	target, found := reg.Get(kind, namespace, name)
 	if !found {
 		art := &registry.Artifact{
-			FieldType: "unresolved",
-			Raw:       fmt.Sprintf("%s/%s/%s", kind, namespace, name),
+			FieldType:  "unresolved",
+			Raw:        fmt.Sprintf("%s/%s/%s", kind, namespace, name),
 			Resolution: chain,
-			Warnings:  []string{fmt.Sprintf("could not find %s/%s in registry", kind, name)},
+			Warnings:   []string{fmt.Sprintf("could not find %s/%s in registry", kind, name)},
 		}
 		return []*registry.Artifact{art}, nil
 	}
@@ -156,7 +156,7 @@ func extractFromTargetWithChain(
 					break
 				}
 			}
-			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain))
+			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
 		}
 
 	case target.Path != "" && len(target.TagPaths) > 0:
@@ -171,13 +171,13 @@ func extractFromTargetWithChain(
 					break
 				}
 			}
-			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain))
+			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
 		}
 
 	case target.Path != "":
 		// Fully merged ref in a single field
 		for _, raw := range patheval.Get(res.Raw, target.Path) {
-			arts = append(arts, buildArtifact(fieldType, raw, "", nil, fullChain))
+			arts = append(arts, buildArtifact(fieldType, raw, "", nil, fullChain, res.KustomizeDir))
 		}
 	}
 
@@ -191,12 +191,15 @@ func combinedRef(name, tag string) string {
 	return name
 }
 
-func buildArtifact(fieldType, raw, tagHint string, extraRef map[string]string, chain []registry.ResolutionStep) *registry.Artifact {
+func buildArtifact(fieldType, raw, tagHint string, extraRef map[string]string, chain []registry.ResolutionStep, kustomizeDir string) *registry.Artifact {
 	art := &registry.Artifact{
 		FieldType:  fieldType,
 		Raw:        raw,
 		Ref:        extraRef,
 		Resolution: chain,
+	}
+	if kustomizeDir != "" {
+		art.KustomizeOverlays = []string{kustomizeDir}
 	}
 	ref, err := refparser.Parse(raw)
 	if err == nil {
@@ -238,10 +241,27 @@ func renderField(tmpl string, data map[string]interface{}) string {
 
 // dedup collapses artifacts with identical (raw, fieldType) keys, keeping
 // the entry with the longest resolution chain (richest context).
+// KustomizeOverlays from all duplicate entries are merged into the survivor.
 func dedup(arts []*registry.Artifact) []*registry.Artifact {
 	type key struct{ raw, fieldType string }
 	best := make(map[key]*registry.Artifact, len(arts))
+	// overlaysSeen tracks which overlay dirs have been recorded for each key,
+	// preserving order of first occurrence.
+	overlaysSeen := make(map[key]map[string]bool)
+	overlaysOrdered := make(map[key][]string)
 	var order []key
+
+	mergeOverlays := func(k key, dirs []string) {
+		if overlaysSeen[k] == nil {
+			overlaysSeen[k] = make(map[string]bool)
+		}
+		for _, d := range dirs {
+			if d != "" && !overlaysSeen[k][d] {
+				overlaysSeen[k][d] = true
+				overlaysOrdered[k] = append(overlaysOrdered[k], d)
+			}
+		}
+	}
 
 	for _, art := range arts {
 		k := key{raw: art.Raw, fieldType: art.FieldType}
@@ -251,11 +271,14 @@ func dedup(arts []*registry.Artifact) []*registry.Artifact {
 		} else if len(art.Resolution) > len(existing.Resolution) {
 			best[k] = art
 		}
+		mergeOverlays(k, art.KustomizeOverlays)
 	}
 
 	result := make([]*registry.Artifact, 0, len(order))
 	for _, k := range order {
-		result = append(result, best[k])
+		art := best[k]
+		art.KustomizeOverlays = overlaysOrdered[k]
+		result = append(result, art)
 	}
 	return result
 }

@@ -11,8 +11,13 @@ import (
 )
 
 var (
-	cfgFile    string
-	outputFile string
+	cfgFile                string
+	outputFile             string
+	excludeGlobs           []string
+	defaultNamespace       string
+	disableHelm            bool
+	disableKustomize       bool
+	kustomizeOverlayFilter []string
 )
 
 var rootCmd = &cobra.Command{
@@ -30,7 +35,15 @@ var rootCmd = &cobra.Command{
 			cfg = config.Merge(cfg, userCfg)
 		}
 
-		result, err := scanner.Scan(args[0], cfg)
+		opts := scanner.Options{
+			DefaultNamespace:       defaultNamespace,
+			ExcludeGlobs:           excludeGlobs,
+			DisableHelm:            disableHelm,
+			DisableKustomize:       disableKustomize,
+			KustomizeOverlayFilter: kustomizeOverlayFilter,
+		}
+
+		result, err := scanner.Scan(args[0], cfg, opts)
 		if err != nil {
 			return fmt.Errorf("scan: %w", err)
 		}
@@ -58,4 +71,9 @@ func Execute() {
 func init() {
 	rootCmd.Flags().StringVarP(&cfgFile, "config", "c", "", "path to refs config YAML file (appended to built-ins)")
 	rootCmd.Flags().StringVarP(&outputFile, "output", "o", "", "write output to file (default: stdout)")
+	rootCmd.Flags().StringArrayVarP(&excludeGlobs, "exclude", "e", nil, "glob pattern to exclude (repeatable); matched against dir name and path relative to root")
+	rootCmd.Flags().StringVar(&defaultNamespace, "default-namespace", "default", "namespace used as last-resort fallback when a resource reference omits namespace")
+	rootCmd.Flags().BoolVar(&disableHelm, "no-helm", false, "disable Helm chart rendering; chart directories are skipped silently")
+	rootCmd.Flags().BoolVar(&disableKustomize, "no-kustomize", false, "disable kustomize overlay rendering; process files as plain YAML")
+	rootCmd.Flags().StringArrayVar(&kustomizeOverlayFilter, "kustomize-overlay", nil, "render only kustomize overlays whose path matches this glob (repeatable); others are skipped")
 }

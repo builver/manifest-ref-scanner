@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helm-test
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: helm-test
+          image: registry.example.com/helm-test:v1.2.3

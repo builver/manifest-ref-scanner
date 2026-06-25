@@ -37,7 +37,7 @@ func buildResourceSet(inputs []interface{}, resources []interface{}) *registry.R
 			"resources": resources,
 		},
 	}
-	return registry.FromDoc(raw, "test.yaml")
+	return registry.FromDoc(raw, "test.yaml", "")
 }
 
 func TestExpand_NoInputs_SinglePass(t *testing.T) {
@@ -52,7 +52,7 @@ func TestExpand_NoInputs_SinglePass(t *testing.T) {
 		},
 	}
 	res := buildResourceSet(nil, []interface{}{tmpl})
-	reg := registry.New()
+	reg := registry.New("")
 	reg.Add(res)
 
 	cfg := makeExpanderConfig()
@@ -97,7 +97,7 @@ func TestExpand_TwoInputs_TwoExpansions(t *testing.T) {
 		},
 	}
 	res := buildResourceSet(inputs, []interface{}{tmpl})
-	reg := registry.New()
+	reg := registry.New("")
 	reg.Add(res)
 
 	cfg := makeExpanderConfig()
@@ -134,7 +134,7 @@ func TestExpand_TemplateSubstitution(t *testing.T) {
 		},
 	}
 	res := buildResourceSet(inputs, []interface{}{tmpl})
-	reg := registry.New()
+	reg := registry.New("")
 	reg.Add(res)
 
 	cfg := makeExpanderConfig()
@@ -169,7 +169,7 @@ func TestExpand_UnknownKeyLeftAsIs(t *testing.T) {
 		},
 	}
 	res := buildResourceSet(inputs, []interface{}{tmpl})
-	reg := registry.New()
+	reg := registry.New("")
 	reg.Add(res)
 
 	cfg := makeExpanderConfig()
@@ -199,7 +199,7 @@ func TestExpand_InputContextSet(t *testing.T) {
 		},
 	}
 	res := buildResourceSet(inputs, []interface{}{tmpl})
-	reg := registry.New()
+	reg := registry.New("")
 	reg.Add(res)
 
 	cfg := makeExpanderConfig()

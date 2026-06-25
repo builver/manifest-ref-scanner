@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helm-standalone
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: helm-standalone
+          image: registry.example.com/helm-standalone:v1.2.3

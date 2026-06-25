@@ -1,0 +1,9 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kustomize-built
+  namespace: default
+spec:
+  url: oci://ghcr.io/example/kustomize-built
+  ref:
+    tag: v1.0.0-base

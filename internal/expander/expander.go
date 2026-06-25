@@ -38,7 +38,7 @@ func expandInline(reg *registry.Registry, exp config.InlineExpander, res *regist
 	for _, input := range inputs {
 		for _, tmpl := range templates {
 			rendered := renderResourceTemplate(tmpl, input, exp.TemplateDelimLeft, exp.TemplateDelimRight)
-			child := registry.FromDoc(rendered, res.SourceFile)
+			child := registry.FromDoc(rendered, res.SourceFile, "")
 			if child == nil {
 				continue
 			}

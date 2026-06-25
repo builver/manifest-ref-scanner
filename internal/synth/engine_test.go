@@ -24,11 +24,11 @@ func buildFluxInstance(namespace, syncURL, syncRef string) *registry.Resource {
 			},
 		},
 	}
-	return registry.FromDoc(raw, "fluxinstance.yaml")
+	return registry.FromDoc(raw, "fluxinstance.yaml", "")
 }
 
 func TestApply_FluxInstance_SynthesizesOCIRepository(t *testing.T) {
-	reg := registry.New()
+	reg := registry.New("")
 	fi := buildFluxInstance("flux-system", "oci://ghcr.io/controlplaneio-fluxcd/alpine/flux-operator-manifests", "v2.4.0")
 	reg.Add(fi)
 
@@ -75,7 +75,7 @@ func TestApply_FluxInstance_SynthesizesOCIRepository(t *testing.T) {
 }
 
 func TestApply_FluxInstance_SyntheticFromSet(t *testing.T) {
-	reg := registry.New()
+	reg := registry.New("")
 	fi := buildFluxInstance("monitoring", "oci://ghcr.io/example/flux-manifests", "v1.0.0")
 	reg.Add(fi)
 
@@ -99,7 +99,7 @@ func TestApply_FluxInstance_SyntheticFromSet(t *testing.T) {
 
 func TestApply_FluxInstance_NamespaceFromMetadata(t *testing.T) {
 	// The synthesized OCIRepository should use the FluxInstance's namespace.
-	reg := registry.New()
+	reg := registry.New("")
 	fi := buildFluxInstance("custom-ns", "oci://ghcr.io/example/manifests", "v3.0.0")
 	reg.Add(fi)
 
@@ -119,7 +119,7 @@ func TestApply_FluxInstance_NamespaceFromMetadata(t *testing.T) {
 
 func TestApply_NoFluxInstance_NoSynthetics(t *testing.T) {
 	// Without a FluxInstance, no synthetic OCIRepository should appear.
-	reg := registry.New()
+	reg := registry.New("")
 	cm := registry.FromDoc(map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
@@ -127,7 +127,7 @@ func TestApply_NoFluxInstance_NoSynthetics(t *testing.T) {
 			"name":      "some-config",
 			"namespace": "default",
 		},
-	}, "configmap.yaml")
+	}, "configmap.yaml", "")
 	reg.Add(cm)
 
 	cfg := config.DefaultConfig()

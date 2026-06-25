@@ -1,0 +1,9 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kustomize-built
+spec:
+  interval: 1h
+  url: oci://some.example/oci-repository
+  ref:
+    tag: base
