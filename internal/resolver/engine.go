@@ -27,7 +27,7 @@ func Resolve(reg *registry.Registry, cfg *config.Config) ([]*registry.Artifact, 
 				if !matchesTarget(group, res.Kind, target) {
 					continue
 				}
-				arts := extractFromTarget(res, ft.Name, target)
+				arts := extractFromTarget(res, ft.Name, ft.ValueType, target)
 				artifacts = append(artifacts, arts...)
 			}
 		}
@@ -87,7 +87,7 @@ func followResolver(
 	if !found {
 		art := &registry.Artifact{
 			FieldType:  "unresolved",
-			Raw:        fmt.Sprintf("%s/%s/%s", kind, namespace, name),
+			Reference:  fmt.Sprintf("%s/%s/%s", kind, namespace, name),
 			Resolution: chain,
 			Warnings:   []string{fmt.Sprintf("could not find %s/%s in registry", kind, name)},
 		}
@@ -102,7 +102,7 @@ func followResolver(
 			if !matchesTarget(targetGroup, target.Kind, tgt) {
 				continue
 			}
-			arts := extractFromTargetWithChain(target, ft.Name, tgt, chain)
+			arts := extractFromTargetWithChain(target, ft.Name, ft.ValueType, tgt, chain)
 			artifacts = append(artifacts, arts...)
 		}
 	}
@@ -120,13 +120,14 @@ func followResolver(
 	return artifacts, nil
 }
 
-func extractFromTarget(res *registry.Resource, fieldType string, target config.FieldTarget) []*registry.Artifact {
-	return extractFromTargetWithChain(res, fieldType, target, nil)
+func extractFromTarget(res *registry.Resource, fieldType, valueType string, target config.FieldTarget) []*registry.Artifact {
+	return extractFromTargetWithChain(res, fieldType, valueType, target, nil)
 }
 
 func extractFromTargetWithChain(
 	res *registry.Resource,
 	fieldType string,
+	valueType string,
 	target config.FieldTarget,
 	chain []registry.ResolutionStep,
 ) []*registry.Artifact {
@@ -156,7 +157,7 @@ func extractFromTargetWithChain(
 					break
 				}
 			}
-			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
+			arts = append(arts, buildArtifact(fieldType, valueType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
 		}
 
 	case target.Path != "" && len(target.TagPaths) > 0:
@@ -171,13 +172,13 @@ func extractFromTargetWithChain(
 					break
 				}
 			}
-			arts = append(arts, buildArtifact(fieldType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
+			arts = append(arts, buildArtifact(fieldType, valueType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
 		}
 
 	case target.Path != "":
 		// Fully merged ref in a single field
 		for _, raw := range patheval.Get(res.Raw, target.Path) {
-			arts = append(arts, buildArtifact(fieldType, raw, "", nil, fullChain, res.KustomizeDir))
+			arts = append(arts, buildArtifact(fieldType, valueType, raw, "", nil, fullChain, res.KustomizeDir))
 		}
 	}
 
@@ -191,15 +192,18 @@ func combinedRef(name, tag string) string {
 	return name
 }
 
-func buildArtifact(fieldType, raw, tagHint string, extraRef map[string]string, chain []registry.ResolutionStep, kustomizeDir string) *registry.Artifact {
+func buildArtifact(fieldType, valueType, raw, tagHint string, extraRef map[string]string, chain []registry.ResolutionStep, kustomizeDir string) *registry.Artifact {
 	art := &registry.Artifact{
 		FieldType:  fieldType,
-		Raw:        raw,
+		Reference:  raw,
 		Ref:        extraRef,
 		Resolution: chain,
 	}
 	if kustomizeDir != "" {
 		art.KustomizeOverlays = []string{kustomizeDir}
+	}
+	if valueType == config.ValueTypeString {
+		return art
 	}
 	ref, err := refparser.Parse(raw)
 	if err == nil {
@@ -264,7 +268,7 @@ func dedup(arts []*registry.Artifact) []*registry.Artifact {
 	}
 
 	for _, art := range arts {
-		k := key{raw: art.Raw, fieldType: art.FieldType}
+		k := key{raw: art.Reference, fieldType: art.FieldType}
 		if existing, ok := best[k]; !ok {
 			order = append(order, k)
 			best[k] = art

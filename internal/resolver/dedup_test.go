@@ -12,7 +12,7 @@ func TestDedup_LongerChainWins(t *testing.T) {
 	shortChain := []*registry.Artifact{
 		{
 			FieldType: "ociArtifact",
-			Raw:       "oci://ghcr.io/example/repo:v1",
+			Reference: "oci://ghcr.io/example/repo:v1",
 			Resolution: []registry.ResolutionStep{
 				{Kind: "OCIRepository", Name: "repo", Namespace: "flux-system"},
 			},
@@ -21,7 +21,7 @@ func TestDedup_LongerChainWins(t *testing.T) {
 	longChain := []*registry.Artifact{
 		{
 			FieldType: "ociArtifact",
-			Raw:       "oci://ghcr.io/example/repo:v1",
+			Reference: "oci://ghcr.io/example/repo:v1",
 			Resolution: []registry.ResolutionStep{
 				{Kind: "Kustomization", Name: "infra", Namespace: "flux-system", Via: "spec/sourceRef"},
 				{Kind: "OCIRepository", Name: "repo", Namespace: "flux-system"},
@@ -44,7 +44,7 @@ func TestDedup_LongerChainWins_OrderReversed(t *testing.T) {
 	// Same test but with longer chain presented first — result should still have the longer chain.
 	longChain := &registry.Artifact{
 		FieldType: "ociArtifact",
-		Raw:       "oci://ghcr.io/example/repo:v2",
+		Reference: "oci://ghcr.io/example/repo:v2",
 		Resolution: []registry.ResolutionStep{
 			{Kind: "HelmRelease", Name: "hr", Namespace: "apps", Via: "spec/chartRef"},
 			{Kind: "OCIRepository", Name: "repo", Namespace: "flux-system"},
@@ -52,7 +52,7 @@ func TestDedup_LongerChainWins_OrderReversed(t *testing.T) {
 	}
 	shortChain := &registry.Artifact{
 		FieldType: "ociArtifact",
-		Raw:       "oci://ghcr.io/example/repo:v2",
+		Reference: "oci://ghcr.io/example/repo:v2",
 		Resolution: []registry.ResolutionStep{
 			{Kind: "OCIRepository", Name: "repo", Namespace: "flux-system"},
 		},
@@ -72,14 +72,14 @@ func TestDedup_DifferentRefs_BothKept(t *testing.T) {
 	arts := []*registry.Artifact{
 		{
 			FieldType: "ociArtifact",
-			Raw:       "oci://ghcr.io/example/repo-a:v1",
+			Reference: "oci://ghcr.io/example/repo-a:v1",
 			Resolution: []registry.ResolutionStep{
 				{Kind: "OCIRepository", Name: "repo-a"},
 			},
 		},
 		{
 			FieldType: "ociArtifact",
-			Raw:       "oci://ghcr.io/example/repo-b:v2",
+			Reference: "oci://ghcr.io/example/repo-b:v2",
 			Resolution: []registry.ResolutionStep{
 				{Kind: "OCIRepository", Name: "repo-b"},
 			},
@@ -97,14 +97,14 @@ func TestDedup_SameRawDifferentFieldType_BothKept(t *testing.T) {
 	arts := []*registry.Artifact{
 		{
 			FieldType: "ociArtifact",
-			Raw:       "oci://ghcr.io/example/repo:v1",
+			Reference: "oci://ghcr.io/example/repo:v1",
 			Resolution: []registry.ResolutionStep{
 				{Kind: "OCIRepository", Name: "repo"},
 			},
 		},
 		{
 			FieldType: "containerImage",
-			Raw:       "oci://ghcr.io/example/repo:v1",
+			Reference: "oci://ghcr.io/example/repo:v1",
 			Resolution: []registry.ResolutionStep{
 				{Kind: "Deployment", Name: "my-deploy"},
 			},
@@ -127,19 +127,19 @@ func TestDedup_Empty(t *testing.T) {
 func TestDedup_PreservesInsertionOrder(t *testing.T) {
 	// First-seen ref should appear before second-seen ref.
 	arts := []*registry.Artifact{
-		{FieldType: "ociArtifact", Raw: "oci://ghcr.io/example/first:v1",
+		{FieldType: "ociArtifact", Reference: "oci://ghcr.io/example/first:v1",
 			Resolution: []registry.ResolutionStep{{Kind: "OCIRepository", Name: "first"}}},
-		{FieldType: "ociArtifact", Raw: "oci://ghcr.io/example/second:v2",
+		{FieldType: "ociArtifact", Reference: "oci://ghcr.io/example/second:v2",
 			Resolution: []registry.ResolutionStep{{Kind: "OCIRepository", Name: "second"}}},
 	}
 	result := dedup(arts)
 	if len(result) != 2 {
 		t.Fatalf("dedup order: expected 2 results, got %d", len(result))
 	}
-	if result[0].Raw != "oci://ghcr.io/example/first:v1" {
-		t.Errorf("dedup order: expected first entry to be 'first', got %q", result[0].Raw)
+	if result[0].Reference != "oci://ghcr.io/example/first:v1" {
+		t.Errorf("dedup order: expected first entry to be 'first', got %q", result[0].Reference)
 	}
-	if result[1].Raw != "oci://ghcr.io/example/second:v2" {
-		t.Errorf("dedup order: expected second entry to be 'second', got %q", result[1].Raw)
+	if result[1].Reference != "oci://ghcr.io/example/second:v2" {
+		t.Errorf("dedup order: expected second entry to be 'second', got %q", result[1].Reference)
 	}
 }

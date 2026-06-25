@@ -1,18 +1,33 @@
 package config
 
+// ValueType controls how an extracted field value is interpreted.
+type ValueType = string
+
+const (
+	// ValueTypeOCI parses the extracted string as an OCI reference, populating
+	// Registry, Repository, Tag, and Digest on the resulting Finding.
+	// This is the default when valueType is omitted.
+	ValueTypeOCI ValueType = "oci"
+
+	// ValueTypeString treats the extracted value as a plain string.
+	// No OCI parsing is attempted; only Reference is populated.
+	ValueTypeString ValueType = "string"
+)
+
 // Config is the top-level configuration for the scanner.
 type Config struct {
-	FieldTypes           []FieldType           `yaml:"fieldTypes"`
-	Synthesizers         []Synthesizer         `yaml:"synthesizers"`
-	Resolvers            []Resolver            `yaml:"resolvers"`
+	FieldTypes      []FieldType      `yaml:"fieldTypes"`
+	Synthesizers    []Synthesizer    `yaml:"synthesizers"`
+	Resolvers       []Resolver       `yaml:"resolvers"`
 	InlineExpanders []InlineExpander `yaml:"inlineExpanders"`
 }
 
 // FieldType defines a named category of reference (e.g. "containerImage")
 // and the field paths within specific resource kinds where that reference lives.
 type FieldType struct {
-	Name    string        `yaml:"name"`
-	Targets []FieldTarget `yaml:"targets"`
+	Name      string        `yaml:"name"`
+	ValueType string        `yaml:"valueType"` // "oci" (default) or "string"
+	Targets   []FieldTarget `yaml:"targets"`
 }
 
 // FieldTarget maps a resource kind to the field path(s) containing the reference.

@@ -22,11 +22,11 @@ template: |
     provider: {{ default "unknown" .Args.provider }}
     resources:
   {{- range uniqueByRaw .Artifacts }}
-    - name: {{ if .Repository }}{{ sanitizeName .Repository }}{{ else }}{{ sanitizeName .Raw }}{{ end }}
+    - name: {{ if .Repository }}{{ sanitizeName .Repository }}{{ else }}{{ sanitizeName .Reference }}{{ end }}
       type: ociImage
       version: {{ or .Tag .Digest "unknown" }}
       relation: external
       access:
         type: ociArtifact
-        imageReference: {{ .Raw }}
+        imageReference: {{ .Reference }}
   {{- end }}

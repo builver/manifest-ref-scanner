@@ -7,7 +7,7 @@
 artifacts:
 {{- range uniqueByRaw .Artifacts }}
 - type: image
-  source: {{ .Raw }}
+  source: {{ .Reference }}
 {{- if $.Args.license }}
   license: {{ $.Args.license }}
 {{- end }}

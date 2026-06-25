@@ -35,8 +35,9 @@ type ResourceRef struct {
 type Artifact struct {
 	// FieldType is the configured name (e.g. "containerImage", "ociArtifact").
 	FieldType string `yaml:"fieldType" json:"fieldType"`
-	// Raw is the unmodified string value found in the manifest.
-	Raw string `yaml:"raw" json:"raw"`
+	// Reference is the full OCI reference string for this artifact (may be
+	// directly extracted from a manifest field or constructed from separate name/tag fields).
+	Reference string `yaml:"reference" json:"reference"`
 	// Parsed components — empty strings mean the value was not present.
 	Registry   string `yaml:"registry,omitempty"   json:"registry,omitempty"`
 	Repository string `yaml:"repository,omitempty" json:"repository,omitempty"`

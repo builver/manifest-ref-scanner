@@ -66,8 +66,8 @@ func funcMap() template.FuncMap {
 			seen := make(map[string]bool, len(artifacts))
 			out := make([]*registry.Artifact, 0, len(artifacts))
 			for _, a := range artifacts {
-				if !seen[a.Raw] {
-					seen[a.Raw] = true
+				if !seen[a.Reference] {
+					seen[a.Reference] = true
 					out = append(out, a)
 				}
 			}

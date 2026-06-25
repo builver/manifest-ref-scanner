@@ -30,7 +30,7 @@ func TestScan_ExpectedArtifacts(t *testing.T) {
 
 	byRaw := make(map[string]bool, len(result.Artifacts))
 	for _, art := range result.Artifacts {
-		byRaw[art.Raw] = true
+		byRaw[art.Reference] = true
 	}
 
 	want := []string{
@@ -53,7 +53,7 @@ func TestScan_NoUnresolvedArtifacts(t *testing.T) {
 	result := scan(t)
 	for _, art := range result.Artifacts {
 		if art.FieldType == "unresolved" {
-			t.Errorf("unexpected unresolved artifact: raw=%q warnings=%v", art.Raw, art.Warnings)
+			t.Errorf("unexpected unresolved artifact: raw=%q warnings=%v", art.Reference, art.Warnings)
 		}
 	}
 }
@@ -66,7 +66,7 @@ func TestScan_FluxInstanceSynthesis(t *testing.T) {
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Raw != "oci://ghcr.io/example/my-gitops:latest" {
+		if art.Reference != "oci://ghcr.io/example/my-gitops:latest" {
 			continue
 		}
 		for _, step := range art.Resolution {
@@ -89,7 +89,7 @@ func TestScan_ResourceSetExpansion(t *testing.T) {
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Raw != "oci://ghcr.io/example/inline-chart:v3.0.0" {
+		if art.Reference != "oci://ghcr.io/example/inline-chart:v3.0.0" {
 			continue
 		}
 		found = true
@@ -115,7 +115,7 @@ func TestScan_SemverRef(t *testing.T) {
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Raw != "oci://ghcr.io/example/charts/versioned:>=1.0.0" {
+		if art.Reference != "oci://ghcr.io/example/charts/versioned:>=1.0.0" {
 			continue
 		}
 		found = true
@@ -151,7 +151,7 @@ func TestScan_KustomizeOverlay(t *testing.T) {
 
 	byRaw := make(map[string]bool)
 	for _, art := range result.Artifacts {
-		byRaw[art.Raw] = true
+		byRaw[art.Reference] = true
 	}
 
 	// Patched OCI artifact from the kustomize patch.
@@ -184,7 +184,7 @@ func TestScan_KustomizeOverlay_HelmChart(t *testing.T) {
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Raw == "xpkg.crossplane.io/crossplane/crossplane:v2.3.2" {
+		if art.Reference == "xpkg.crossplane.io/crossplane/crossplane:v2.3.2" {
 			found = true
 			if art.FieldType != "containerImage" {
 				t.Errorf("expected fieldType=containerImage, got %q", art.FieldType)
@@ -209,7 +209,7 @@ func TestScan_KustomizeNoDoubleCount(t *testing.T) {
 
 	count := 0
 	for _, art := range result.Artifacts {
-		if art.Raw == "oci://ghcr.io/example/kustomize-built:v9.9.9-patched" {
+		if art.Reference == "oci://ghcr.io/example/kustomize-built:v9.9.9-patched" {
 			count++
 		}
 	}
@@ -229,7 +229,7 @@ func TestScan_KustomizeOverlaysField(t *testing.T) {
 	}
 
 	for _, art := range result.Artifacts {
-		if art.Raw != "oci://ghcr.io/example/kustomize-built:v9.9.9-patched" {
+		if art.Reference != "oci://ghcr.io/example/kustomize-built:v9.9.9-patched" {
 			continue
 		}
 		if len(art.KustomizeOverlays) == 0 {
@@ -258,7 +258,7 @@ func TestScan_DisableKustomize(t *testing.T) {
 
 	byRaw := make(map[string]bool)
 	for _, art := range result.Artifacts {
-		byRaw[art.Raw] = true
+		byRaw[art.Reference] = true
 	}
 
 	if !byRaw["oci://ghcr.io/example/kustomize-built:v1.0.0-base"] {
@@ -283,7 +283,7 @@ func TestScan_ComplexOverlay_Default(t *testing.T) {
 
 	byRaw := make(map[string]int)
 	for _, art := range result.Artifacts {
-		byRaw[art.Raw]++
+		byRaw[art.Reference]++
 	}
 
 	// Leaf overlays must be rendered.
@@ -328,7 +328,7 @@ func TestScan_ComplexOverlay_FilterStaging(t *testing.T) {
 
 	byRaw := make(map[string]bool)
 	for _, art := range result.Artifacts {
-		byRaw[art.Raw] = true
+		byRaw[art.Reference] = true
 	}
 
 	// Only the staging overlay should be rendered.
@@ -364,7 +364,7 @@ func TestScan_ComplexOverlay_NoKustomize(t *testing.T) {
 
 	byRaw := make(map[string]bool)
 	for _, art := range result.Artifacts {
-		byRaw[art.Raw] = true
+		byRaw[art.Reference] = true
 	}
 
 	// Raw base file is processed directly → unpatched tag.
@@ -400,7 +400,7 @@ func TestScan_HelmChart(t *testing.T) {
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Raw == "registry.example.com/helm-standalone:v1.2.3" {
+		if art.Reference == "registry.example.com/helm-standalone:v1.2.3" {
 			found = true
 			if art.FieldType != "containerImage" {
 				t.Errorf("expected fieldType=containerImage, got %q", art.FieldType)
@@ -425,7 +425,7 @@ func TestScan_DisableHelm(t *testing.T) {
 	}
 
 	for _, art := range result.Artifacts {
-		if art.Raw == "registry.example.com/helm-standalone:v1.2.3" {
+		if art.Reference == "registry.example.com/helm-standalone:v1.2.3" {
 			t.Error("with DisableHelm=true helm chart image should not appear in artifacts")
 		}
 	}
