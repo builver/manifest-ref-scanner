@@ -1,0 +1,14 @@
+{{- with .Args.name }}name: {{ . }}
+{{ end -}}
+{{- with .Args.namespace }}namespace: {{ . }}
+{{ end -}}
+{{- with .Args.license }}license: {{ . }}
+{{ end -}}
+artifacts:
+{{- range uniqueByRaw .Artifacts }}
+- type: image
+  source: {{ .Raw }}
+{{- if $.Args.license }}
+  license: {{ $.Args.license }}
+{{- end }}
+{{- end }}

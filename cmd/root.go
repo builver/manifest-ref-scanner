@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/patri/manifest-ref-scanner/internal/config"
 	"github.com/patri/manifest-ref-scanner/internal/output"
@@ -18,6 +19,10 @@ var (
 	disableHelm            bool
 	disableKustomize       bool
 	kustomizeOverlayFilter []string
+
+	format           string
+	formatConfigFile string
+	rawArgs          []string
 )
 
 var rootCmd = &cobra.Command{
@@ -58,8 +63,53 @@ var rootCmd = &cobra.Command{
 			w = f
 		}
 
-		return output.WriteYAML(w, result.Artifacts)
+		formatter, err := resolveFormatter(format, formatConfigFile, rawArgs)
+		if err != nil {
+			return err
+		}
+
+		return formatter.Format(w, result.Artifacts)
 	},
+}
+
+// resolveFormatter picks the right Formatter based on flags.
+// Priority: --format-config (custom file) > --format (named built-in) > default YAML.
+func resolveFormatter(format, formatConfigFile string, rawArgs []string) (output.Formatter, error) {
+	templateArgs, err := parseArgs(rawArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	if formatConfigFile != "" {
+		cfg, err := output.Load(formatConfigFile)
+		if err != nil {
+			return nil, err
+		}
+		return output.NewTemplateFormatter(cfg, templateArgs)
+	}
+
+	if format != "" && format != "yaml" {
+		cfg, ok := output.BuiltinFormat(format)
+		if !ok {
+			return nil, fmt.Errorf("unknown --format %q; valid values: yaml, ocm, bom (or use --format-config for a custom template)", format)
+		}
+		return output.NewTemplateFormatter(cfg, templateArgs)
+	}
+
+	return &output.YAMLFormatter{}, nil
+}
+
+// parseArgs splits "key=value" strings from --arg flags into a map.
+func parseArgs(raw []string) (map[string]string, error) {
+	m := make(map[string]string, len(raw))
+	for _, s := range raw {
+		k, v, ok := strings.Cut(s, "=")
+		if !ok {
+			return nil, fmt.Errorf("--arg %q: expected key=value format", s)
+		}
+		m[k] = v
+	}
+	return m, nil
 }
 
 func Execute() {
@@ -76,4 +126,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&disableHelm, "no-helm", false, "disable Helm chart rendering; chart directories are skipped silently")
 	rootCmd.Flags().BoolVar(&disableKustomize, "no-kustomize", false, "disable kustomize overlay rendering; process files as plain YAML")
 	rootCmd.Flags().StringArrayVar(&kustomizeOverlayFilter, "kustomize-overlay", nil, "render only kustomize overlays whose path matches this glob (repeatable); others are skipped")
+
+	rootCmd.Flags().StringVarP(&format, "format", "f", "yaml", `output format: yaml (default), ocm, bom`)
+	rootCmd.Flags().StringVar(&formatConfigFile, "format-config", "", "path to a custom output format config YAML file (overrides --format)")
+	rootCmd.Flags().StringArrayVar(&rawArgs, "arg", nil, "template argument as key=value (repeatable); overrides args defined in --format-config or built-in defaults")
 }

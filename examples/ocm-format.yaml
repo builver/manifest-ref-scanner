@@ -1,0 +1,32 @@
+# Custom format config that reproduces the built-in "ocm" format.
+# Use as a starting point for customizing OCM component descriptor output.
+#
+# Usage:
+#   manifest-ref-scanner ./gitops \
+#     --format-config examples/ocm-format.yaml \
+#     --arg component=github.com/acme/my-app \
+#     --arg version=1.0.0 \
+#     --arg provider=acme.org
+
+args:
+  component: ""   # required: OCM component name, e.g. github.com/acme/my-app
+  version: ""     # required: component version, e.g. 1.0.0
+  provider: ""    # optional: provider name; defaults to "unknown"
+
+template: |
+  meta:
+    schemaVersion: v2
+  component:
+    name: {{ required "component" .Args.component }}
+    version: {{ required "version" .Args.version }}
+    provider: {{ default "unknown" .Args.provider }}
+    resources:
+  {{- range uniqueByRaw .Artifacts }}
+    - name: {{ if .Repository }}{{ sanitizeName .Repository }}{{ else }}{{ sanitizeName .Raw }}{{ end }}
+      type: ociImage
+      version: {{ or .Tag .Digest "unknown" }}
+      relation: external
+      access:
+        type: ociArtifact
+        imageReference: {{ .Raw }}
+  {{- end }}

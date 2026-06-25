@@ -1,0 +1,16 @@
+meta:
+  schemaVersion: v2
+component:
+  name: {{ required "component" .Args.component }}
+  version: {{ required "version" .Args.version }}
+  provider: {{ default "unknown" .Args.provider }}
+  resources:
+{{- range uniqueByRaw .Artifacts }}
+  - name: {{ if .Repository }}{{ sanitizeName .Repository }}{{ else }}{{ sanitizeName .Raw }}{{ end }}
+    type: ociImage
+    version: {{ or .Tag .Digest "unknown" }}
+    relation: external
+    access:
+      type: ociArtifact
+      imageReference: {{ .Raw }}
+{{- end }}

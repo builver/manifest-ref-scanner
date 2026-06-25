@@ -1,0 +1,31 @@
+# Custom format config that reproduces the built-in "bom" format.
+# Use as a starting point for customizing bom generate config output.
+# See: https://kubernetes-sigs.github.io/bom/tutorials/using_yaml_config/
+#
+# Usage:
+#   manifest-ref-scanner ./gitops \
+#     --format-config examples/bom-format.yaml \
+#     --arg name=my-app-sbom \
+#     --arg namespace=https://example.com/sbom \
+#     --arg license=Apache-2.0
+
+args:
+  name: ""        # optional: human-readable BOM document name
+  namespace: ""   # optional: SPDX namespace URI
+  license: ""     # optional: SPDX license identifier applied to all images
+
+template: |
+  {{- with .Args.name }}name: {{ . }}
+  {{ end -}}
+  {{- with .Args.namespace }}namespace: {{ . }}
+  {{ end -}}
+  {{- with .Args.license }}license: {{ . }}
+  {{ end -}}
+  artifacts:
+  {{- range uniqueByRaw .Artifacts }}
+  - type: image
+    source: {{ .Raw }}
+  {{- if $.Args.license }}
+    license: {{ $.Args.license }}
+  {{- end }}
+  {{- end }}
