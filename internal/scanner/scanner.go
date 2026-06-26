@@ -1,6 +1,10 @@
 package scanner
 
 import (
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/builver/manifest-ref-scanner/internal/config"
 	"github.com/builver/manifest-ref-scanner/internal/expander"
 	"github.com/builver/manifest-ref-scanner/internal/registry"
@@ -29,6 +33,8 @@ type Options struct {
 	// detected Kustomize overlay directory (relative path from scan root).
 	// When non-empty, only matching overlays are rendered; others are skipped.
 	KustomizeOverlayFilter []string
+	// Verbose prints per-phase timing to stderr.
+	Verbose bool
 }
 
 // DefaultOptions returns Options with sensible defaults.
@@ -45,14 +51,23 @@ type Result struct {
 // Pass 1 builds a registry of all resources (real, inline, synthetic).
 // Pass 2 resolves reference chains and extracts OCI artifact references.
 func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
+	log := func(format string, args ...any) {
+		if opts.Verbose {
+			fmt.Fprintf(os.Stderr, "[scan] "+format+"\n", args...)
+		}
+	}
+
+	total := time.Now()
 	reg := registry.New(opts.DefaultNamespace)
 
 	// Pass 1a: walk directory, parse all YAML files, register resources
+	t := time.Now()
 	docs, err := walker.Walk(root, walker.Options{
 		ExcludeGlobs:           opts.ExcludeGlobs,
 		DisableHelm:            opts.DisableHelm,
 		DisableKustomize:       opts.DisableKustomize,
 		KustomizeOverlayFilter: opts.KustomizeOverlayFilter,
+		Verbose:                opts.Verbose,
 	})
 	if err != nil {
 		return nil, err
@@ -62,22 +77,30 @@ func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
 			reg.Add(res)
 		}
 	}
+	log("pass1a walk+parse: %d docs registered in %s", len(docs), time.Since(t).Round(time.Millisecond))
 
 	// Pass 1b: expand inline resource templates → adds inline resources
+	t = time.Now()
 	if err := expander.Expand(reg, cfg); err != nil {
 		return nil, err
 	}
+	log("pass1b expander:   %s", time.Since(t).Round(time.Millisecond))
 
 	// Pass 1c: apply synthesizers → adds synthetic resources (e.g. flux-system OCIRepository)
+	t = time.Now()
 	if err := synth.Apply(reg, cfg); err != nil {
 		return nil, err
 	}
+	log("pass1c synth:      %s", time.Since(t).Round(time.Millisecond))
 
 	// Pass 2: resolve chains and extract OCI artifact references
+	t = time.Now()
 	artifacts, err := resolver.Resolve(reg, cfg)
 	if err != nil {
 		return nil, err
 	}
+	log("pass2  resolver:   %d artifacts in %s", len(artifacts), time.Since(t).Round(time.Millisecond))
+	log("total:             %s", time.Since(total).Round(time.Millisecond))
 
 	return &Result{Artifacts: artifacts}, nil
 }

@@ -25,6 +25,7 @@ var (
 	formatConfigFile string
 	rawArgs          []string
 	excludeRefGlobs  []string
+	verbose          bool
 )
 
 var rootCmd = &cobra.Command{
@@ -49,6 +50,7 @@ var rootCmd = &cobra.Command{
 			DisableHelm:            disableHelm,
 			DisableKustomize:       disableKustomize,
 			KustomizeOverlayFilter: kustomizeOverlayFilter,
+			Verbose:                verbose,
 		}
 
 		result, err := scanner.Scan(args[0], cfg, opts)
@@ -156,4 +158,5 @@ func init() {
 	rootCmd.Flags().StringVar(&formatConfigFile, "format-config", "", "path to a custom output format config YAML file (overrides --format)")
 	rootCmd.Flags().StringArrayVar(&rawArgs, "arg", nil, "template argument as key=value (repeatable); overrides args defined in --format-config or built-in defaults")
 	rootCmd.Flags().StringArrayVar(&excludeRefGlobs, "exclude-ref", nil, "exclude artifacts whose reference contains this substring (repeatable)")
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print per-phase timing to stderr")
 }

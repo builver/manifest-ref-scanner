@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/builver/manifest-ref-scanner/internal/helm"
 	"github.com/builver/manifest-ref-scanner/internal/kustomize"
@@ -15,7 +17,7 @@ import (
 
 // ParsedDoc holds a single parsed Kubernetes resource from a YAML file.
 type ParsedDoc struct {
-	Raw        map[string]interface{}
+	Raw        map[string]any
 	SourceFile string
 	// KustomizeDir is set when this document was produced by kustomize build.
 	// It is the directory path of the overlay that was rendered.
@@ -44,53 +46,68 @@ type Options struct {
 	// (their contents are not scanned). When empty, the default leaf-only
 	// strategy applies.
 	KustomizeOverlayFilter []string
+
+	// Verbose prints per-subprocess timing to stderr.
+	Verbose bool
 }
 
 // Walk recursively finds all *.yaml / *.yml files under root and parses every
 // YAML document within them, returning the flat list of resources.
 //
-// Kustomize overlay directories (containing a kustomization.yaml with
-// apiVersion kustomize.config.k8s.io/… or no apiVersion) are rendered via
-// `kustomize build` and the rendered output is used in place of the individual
-// files. By default only leaf overlays are rendered — overlays that are
-// referenced as a resource by another overlay in the same tree are skipped
-// (they are already included in the rendering of their consumers). Use
-// KustomizeOverlayFilter to target specific overlays explicitly.
+// The walk is a two-phase process:
+//   - Phase 1: a single directory traversal collects plain YAML files, Kustomize
+//     overlay directories (with their resource dependencies for leaf detection),
+//     and Helm chart directories. No subprocesses are invoked here.
+//   - Phase 2: plain files are parsed sequentially; kustomize and helm subprocesses
+//     are launched in parallel, one goroutine per invocation.
 //
-// Directories that contain a Chart.yaml are skipped entirely — Helm chart
-// templates are not valid plain YAML.
+// Kustomize overlay directories (containing a kustomization.yaml) are rendered
+// via `kustomize build`. By default only leaf overlays are rendered — overlays
+// referenced as a resource by another overlay in the same tree are skipped.
+// Use KustomizeOverlayFilter to target specific overlays explicitly.
+//
+// Directories containing a Chart.yaml are rendered via `helm template` and
+// their individual template files are not processed as plain YAML.
 func Walk(root string, opts Options) ([]ParsedDoc, error) {
-	var docs []ParsedDoc
-
-	// Pre-compute which overlay directories are leaves so the main walk can
-	// decide whether to render each one. Skipped when a filter is active
-	// (the filter overrides leaf logic) or kustomize is disabled.
-	var leafOverlays map[string]bool
-	if !opts.DisableKustomize && len(opts.KustomizeOverlayFilter) == 0 {
-		leafOverlays = computeLeafOverlays(root, opts)
+	log := func(format string, args ...any) {
+		if opts.Verbose {
+			fmt.Fprintf(os.Stderr, "[walk] "+format+"\n", args...)
+		}
 	}
 
+	// Phase 1: single directory traversal — collect work items, no subprocesses.
+	type overlayItem struct {
+		dir   string
+		kfile string
+		deps  []string // absolute paths of local resource dirs this overlay depends on
+	}
+	type helmItem struct {
+		dir  string
+		name string
+	}
+
+	var (
+		plainFiles []string
+		overlays   []overlayItem
+		helmCharts []helmItem
+	)
+
+	tWalk := time.Now()
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if d.IsDir() {
-			// Skip hidden directories (e.g. .git, .github)
+			// Skip hidden directories (e.g. .git, .github).
 			if strings.HasPrefix(d.Name(), ".") && d.Name() != "." {
 				return filepath.SkipDir
 			}
 
-			// Helm chart directories — render via `helm template` or skip silently.
+			// Helm chart directories — collect for parallel rendering, then skip.
 			if chartName, isChart, _ := helm.IsHelmChart(path); isChart {
 				if !opts.DisableHelm {
-					rendered, buildErr := helm.Template(chartName, path)
-					if buildErr != nil {
-						fmt.Fprintf(os.Stderr, "warn: helm template failed in %s: %v\n", path, buildErr)
-					} else {
-						chartDocs, _ := parseBytes(rendered, filepath.Join(path, "Chart.yaml"))
-						docs = append(docs, chartDocs...)
-					}
+					helmCharts = append(helmCharts, helmItem{dir: path, name: chartName})
 				}
 				return filepath.SkipDir
 			}
@@ -103,37 +120,15 @@ func Walk(root string, opts Options) ([]ParsedDoc, error) {
 				}
 			}
 
-			// Detect and render Kustomize overlays.
+			// Kustomize overlay directories — collect for parallel rendering, then skip.
+			// Also read resource deps now so leaf detection needs no second I/O pass.
 			if !opts.DisableKustomize {
 				kfile, isOverlay, checkErr := kustomize.IsKustomizeDir(path)
 				if checkErr != nil {
 					fmt.Fprintf(os.Stderr, "warn: checking kustomize dir %s: %v\n", path, checkErr)
 				} else if isOverlay {
-					rel, _ := filepath.Rel(root, path)
-
-					var shouldRender bool
-					if len(opts.KustomizeOverlayFilter) > 0 {
-						// Filter mode: render only overlay dirs that match the filter.
-						shouldRender = matchesAnyGlob(rel, opts.KustomizeOverlayFilter)
-					} else {
-						// Default mode: render only leaf overlays (not referenced by others).
-						shouldRender = leafOverlays[filepath.Clean(path)]
-					}
-
-					if shouldRender {
-						rendered, buildErr := kustomize.Build(path)
-						if buildErr != nil {
-							fmt.Fprintf(os.Stderr, "warn: kustomize build failed in %s: %v\n", path, buildErr)
-						} else {
-							overlayDocs, _ := parseBytes(rendered, filepath.Join(path, kfile))
-							for i := range overlayDocs {
-								overlayDocs[i].KustomizeDir = path
-							}
-							docs = append(docs, overlayDocs...)
-						}
-					}
-					// Always skip the directory's own files — kustomize overlays are either
-					// rendered (above) or subsumed by another overlay that already includes them.
+					deps, _ := kustomize.ParseResources(path, kfile)
+					overlays = append(overlays, overlayItem{dir: path, kfile: kfile, deps: deps})
 					return filepath.SkipDir
 				}
 			}
@@ -154,79 +149,118 @@ func Walk(root string, opts Options) ([]ParsedDoc, error) {
 			}
 		}
 
-		fileDocs, err := parseFile(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warn: skipping %s: %v\n", path, err)
-			return nil
+		plainFiles = append(plainFiles, path)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	log("filesystem walk: %d plain files, %d overlays, %d helm charts in %s",
+		len(plainFiles), len(overlays), len(helmCharts), time.Since(tWalk).Round(time.Millisecond))
+
+	// Determine which overlays to render (leaf detection or filter matching).
+	var toRender []overlayItem
+	if !opts.DisableKustomize {
+		if len(opts.KustomizeOverlayFilter) > 0 {
+			for _, o := range overlays {
+				rel, _ := filepath.Rel(root, o.dir)
+				if matchesAnyGlob(rel, opts.KustomizeOverlayFilter) {
+					toRender = append(toRender, o)
+				}
+			}
+		} else {
+			overlaySet := make(map[string]bool, len(overlays))
+			for _, o := range overlays {
+				overlaySet[filepath.Clean(o.dir)] = true
+			}
+			referenced := make(map[string]bool)
+			for _, o := range overlays {
+				for _, dep := range o.deps {
+					if overlaySet[filepath.Clean(dep)] {
+						referenced[filepath.Clean(dep)] = true
+					}
+				}
+			}
+			for _, o := range overlays {
+				if !referenced[filepath.Clean(o.dir)] {
+					toRender = append(toRender, o)
+				}
+			}
+		}
+		log("leaf detection: rendering %d of %d overlays", len(toRender), len(overlays))
+	}
+
+	// Phase 2: parse plain files sequentially (fast), render subprocesses in parallel.
+	var docs []ParsedDoc
+
+	for _, f := range plainFiles {
+		fileDocs, parseErr := parseFile(f)
+		if parseErr != nil {
+			fmt.Fprintf(os.Stderr, "warn: skipping %s: %v\n", f, parseErr)
+			continue
 		}
 		docs = append(docs, fileDocs...)
-		return nil
-	})
-
-	return docs, err
-}
-
-// computeLeafOverlays does a pre-scan of root to discover all kustomize overlay
-// directories and determines which are leaf overlays — i.e. not referenced as a
-// resource by another overlay in the same tree. Only leaf overlays are rendered
-// by default, preventing base overlays from being rendered redundantly.
-func computeLeafOverlays(root string, opts Options) map[string]bool {
-	type overlayEntry struct {
-		dir   string // filepath.Clean'd path
-		kfile string // "kustomization.yaml" or "kustomization.yml"
 	}
-	var overlays []overlayEntry
 
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error { //nolint:errcheck
-		if err != nil || !d.IsDir() {
-			return err
-		}
-		if strings.HasPrefix(d.Name(), ".") && d.Name() != "." {
-			return filepath.SkipDir
-		}
-		if _, statErr := os.Stat(filepath.Join(path, "Chart.yaml")); statErr == nil {
-			return filepath.SkipDir
-		}
-		rel, _ := filepath.Rel(root, path)
-		for _, glob := range opts.ExcludeGlobs {
-			if matchesGlob(d.Name(), rel, glob) {
-				return filepath.SkipDir
+	type renderResult struct {
+		docs []ParsedDoc
+	}
+	results := make(chan renderResult, len(toRender)+len(helmCharts))
+	var wg sync.WaitGroup
+
+	for _, o := range toRender {
+		wg.Add(1)
+		go func(o overlayItem) {
+			defer wg.Done()
+			t := time.Now()
+			rendered, buildErr := kustomize.Build(o.dir)
+			elapsed := time.Since(t).Round(time.Millisecond)
+			if buildErr != nil {
+				fmt.Fprintf(os.Stderr, "warn: kustomize build failed in %s: %v\n", o.dir, buildErr)
+				results <- renderResult{}
+				return
 			}
-		}
-		kfile, isOverlay, _ := kustomize.IsKustomizeDir(path)
-		if isOverlay {
-			overlays = append(overlays, overlayEntry{dir: filepath.Clean(path), kfile: kfile})
-			return filepath.SkipDir
-		}
-		return nil
-	})
-
-	// Build set of all discovered overlay dirs.
-	overlaySet := make(map[string]string, len(overlays)) // clean path → kfile
-	for _, o := range overlays {
-		overlaySet[o.dir] = o.kfile
-	}
-
-	// Mark overlays that are referenced as a resource by another overlay.
-	referenced := make(map[string]bool)
-	for _, o := range overlays {
-		deps, _ := kustomize.ParseResources(o.dir, o.kfile)
-		for _, dep := range deps {
-			clean := filepath.Clean(dep)
-			if _, ok := overlaySet[clean]; ok {
-				referenced[clean] = true
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "[scan] kustomize build %s: %s\n", o.dir, elapsed)
 			}
-		}
+			overlayDocs, _ := parseBytes(rendered, filepath.Join(o.dir, o.kfile))
+			for i := range overlayDocs {
+				overlayDocs[i].KustomizeDir = o.dir
+			}
+			results <- renderResult{docs: overlayDocs}
+		}(o)
 	}
 
-	// Leaf overlays = all overlays not referenced by any other overlay.
-	leafSet := make(map[string]bool, len(overlays))
-	for clean := range overlaySet {
-		if !referenced[clean] {
-			leafSet[clean] = true
-		}
+	for _, h := range helmCharts {
+		wg.Add(1)
+		go func(h helmItem) {
+			defer wg.Done()
+			t := time.Now()
+			rendered, buildErr := helm.Template(h.name, h.dir)
+			elapsed := time.Since(t).Round(time.Millisecond)
+			if buildErr != nil {
+				fmt.Fprintf(os.Stderr, "warn: helm template failed in %s: %v\n", h.dir, buildErr)
+				results <- renderResult{}
+				return
+			}
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "[scan] helm template %s: %s\n", h.dir, elapsed)
+			}
+			chartDocs, _ := parseBytes(rendered, filepath.Join(h.dir, "Chart.yaml"))
+			results <- renderResult{docs: chartDocs}
+		}(h)
 	}
-	return leafSet
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	for r := range results {
+		docs = append(docs, r.docs...)
+	}
+
+	return docs, nil
 }
 
 // matchesGlob reports whether name (base) or rel (path relative to root)
@@ -281,7 +315,7 @@ func parseBytes(data []byte, sourceFile string) ([]ParsedDoc, error) {
 		if len(bytes.TrimSpace(chunk)) == 0 {
 			continue
 		}
-		var raw map[string]interface{}
+		var raw map[string]any
 		if err := yaml.Unmarshal(chunk, &raw); err != nil {
 			fmt.Fprintf(os.Stderr, "warn: %s: unmarshal error: %v\n", sourceFile, err)
 			continue
