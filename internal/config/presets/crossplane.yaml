@@ -1,0 +1,35 @@
+# Crossplane (pkg.crossplane.io / apiextensions.crossplane.io)
+# Provider, Configuration, and Function all carry an OCI package reference in
+# spec.package (e.g. xpkg.upbound.io/upbound/provider-aws:v1.2.0) — these are
+# extracted. Revision kinds (ConfigurationRevision, ProviderRevision,
+# FunctionRevision) also carry spec.image OCI refs, but they are controller-managed
+# objects created by Crossplane at runtime and must not appear in a GitOps repo.
+# Composition and XRD carry no OCI references (function refs are by name, not OCI URI).
+fieldTypes:
+  - name: ociArtifact
+    targets:
+      - group: pkg.crossplane.io
+        kind: Configuration
+        path: spec/package
+      - group: pkg.crossplane.io
+        kind: Function
+        path: spec/package
+      - group: pkg.crossplane.io
+        kind: Provider
+        path: spec/package
+
+suppressedKinds:
+  - group: apiextensions.crossplane.io
+    kind: Composition
+  - group: apiextensions.crossplane.io
+    kind: CompositeResourceDefinition
+  - group: apiextensions.crossplane.io
+    kind: CompositionRevision
+  - group: pkg.crossplane.io
+    kind: ConfigurationRevision
+  - group: pkg.crossplane.io
+    kind: FunctionRevision
+  - group: pkg.crossplane.io
+    kind: Lock
+  - group: pkg.crossplane.io
+    kind: ProviderRevision

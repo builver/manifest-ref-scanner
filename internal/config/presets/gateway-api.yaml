@@ -1,0 +1,19 @@
+# Kubernetes Gateway API (gateway.networking.k8s.io)
+# Gateway API CRDs define HTTP/TCP/TLS routing rules; none carry OCI artifact references.
+suppressedKinds:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+  - group: gateway.networking.k8s.io
+    kind: GatewayClass
+  - group: gateway.networking.k8s.io
+    kind: GRPCRoute
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+  - group: gateway.networking.k8s.io
+    kind: ReferenceGrant
+  - group: gateway.networking.k8s.io
+    kind: TCPRoute
+  - group: gateway.networking.k8s.io
+    kind: TLSRoute
+  - group: gateway.networking.k8s.io
+    kind: UDPRoute

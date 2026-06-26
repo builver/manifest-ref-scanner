@@ -10,10 +10,11 @@ import (
 	"github.com/builver/manifest-ref-scanner/internal/registry"
 	"github.com/builver/manifest-ref-scanner/internal/scanner"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 )
 
 var (
-	cfgFile                string
+	cfgFiles               []string
 	outputFile             string
 	excludeGlobs           []string
 	defaultNamespace       string
@@ -26,6 +27,8 @@ var (
 	rawArgs          []string
 	excludeRefGlobs  []string
 	verbose          bool
+	coverageOutput   string
+	noPresets        []string
 )
 
 var rootCmd = &cobra.Command{
@@ -36,10 +39,26 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.DefaultConfig()
 
-		if cfgFile != "" {
-			userCfg, err := config.Load(cfgFile)
+		// Apply all built-in presets, skipping any listed in --no-preset.
+		disabled := make(map[string]bool, len(noPresets))
+		for _, name := range noPresets {
+			if _, ok := config.Preset(name); !ok {
+				return fmt.Errorf("unknown preset %q; available: %s", name, strings.Join(config.PresetNames(), ", "))
+			}
+			disabled[name] = true
+		}
+		for _, name := range config.PresetNames() {
+			if disabled[name] {
+				continue
+			}
+			preset, _ := config.Preset(name)
+			cfg = config.Merge(cfg, preset)
+		}
+
+		for _, f := range cfgFiles {
+			userCfg, err := config.Load(f)
 			if err != nil {
-				return fmt.Errorf("load config: %w", err)
+				return fmt.Errorf("load config %s: %w", f, err)
 			}
 			cfg = config.Merge(cfg, userCfg)
 		}
@@ -51,6 +70,7 @@ var rootCmd = &cobra.Command{
 			DisableKustomize:       disableKustomize,
 			KustomizeOverlayFilter: kustomizeOverlayFilter,
 			Verbose:                verbose,
+			CoverageOutput:         coverageOutput,
 		}
 
 		result, err := scanner.Scan(args[0], cfg, opts)
@@ -77,7 +97,20 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		return formatter.Format(w, result.Artifacts)
+		if err := formatter.Format(w, result.Artifacts); err != nil {
+			return err
+		}
+
+		if coverageOutput != "" {
+			data, err := yaml.Marshal(result.Coverage)
+			if err != nil {
+				return fmt.Errorf("marshal coverage report: %w", err)
+			}
+			if err := os.WriteFile(coverageOutput, data, 0o644); err != nil {
+				return fmt.Errorf("write coverage report: %w", err)
+			}
+		}
+		return nil
 	},
 }
 
@@ -146,7 +179,8 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&cfgFile, "config", "c", "", "path to refs config YAML file (appended to built-ins)")
+	rootCmd.Flags().StringArrayVarP(&cfgFiles, "config", "c", nil, "path to a config YAML file (repeatable; merged left to right after defaults and presets)")
+	rootCmd.Flags().StringArrayVar(&noPresets, "no-preset", nil, fmt.Sprintf("disable a built-in preset (repeatable); available: %s", strings.Join(config.PresetNames(), ", ")))
 	rootCmd.Flags().StringVarP(&outputFile, "output", "o", "", "write output to file (default: stdout)")
 	rootCmd.Flags().StringArrayVarP(&excludeGlobs, "exclude", "e", nil, "glob pattern to exclude (repeatable); matched against dir name and path relative to root")
 	rootCmd.Flags().StringVar(&defaultNamespace, "default-namespace", "default", "namespace used as last-resort fallback when a resource reference omits namespace")
@@ -159,4 +193,5 @@ func init() {
 	rootCmd.Flags().StringArrayVar(&rawArgs, "arg", nil, "template argument as key=value (repeatable); overrides args defined in --format-config or built-in defaults")
 	rootCmd.Flags().StringArrayVar(&excludeRefGlobs, "exclude-ref", nil, "exclude artifacts whose reference contains this substring (repeatable)")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print per-phase timing to stderr")
+	rootCmd.Flags().StringVar(&coverageOutput, "coverage-output", "", "write coverage report (unresolved chains, unknown kinds, heuristic hits) to this file")
 }

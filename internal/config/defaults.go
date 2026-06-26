@@ -15,21 +15,23 @@ func DefaultConfig() *Config {
 			{
 				Name: "containerImage",
 				Targets: []FieldTarget{
-					// Core workloads — containers and initContainers
+					// v1 (core group) — Pod is the only workload in the core group.
 					{Kind: "Pod", Path: "spec/containers[*]/image"},
 					{Kind: "Pod", Path: "spec/initContainers[*]/image"},
 					{Kind: "Pod", Path: "spec/ephemeralContainers[*]/image"},
-					{Kind: "Deployment", Path: "spec/template/spec/containers[*]/image"},
-					{Kind: "Deployment", Path: "spec/template/spec/initContainers[*]/image"},
-					{Kind: "DaemonSet", Path: "spec/template/spec/containers[*]/image"},
-					{Kind: "DaemonSet", Path: "spec/template/spec/initContainers[*]/image"},
-					{Kind: "StatefulSet", Path: "spec/template/spec/containers[*]/image"},
-					{Kind: "StatefulSet", Path: "spec/template/spec/initContainers[*]/image"},
-					{Kind: "ReplicaSet", Path: "spec/template/spec/containers[*]/image"},
-					{Kind: "Job", Path: "spec/template/spec/containers[*]/image"},
-					{Kind: "Job", Path: "spec/template/spec/initContainers[*]/image"},
-					{Kind: "CronJob", Path: "spec/jobTemplate/spec/template/spec/containers[*]/image"},
-					{Kind: "CronJob", Path: "spec/jobTemplate/spec/template/spec/initContainers[*]/image"},
+					// apps/v1 workloads
+					{Group: "apps", Kind: "Deployment", Path: "spec/template/spec/containers[*]/image"},
+					{Group: "apps", Kind: "Deployment", Path: "spec/template/spec/initContainers[*]/image"},
+					{Group: "apps", Kind: "DaemonSet", Path: "spec/template/spec/containers[*]/image"},
+					{Group: "apps", Kind: "DaemonSet", Path: "spec/template/spec/initContainers[*]/image"},
+					{Group: "apps", Kind: "StatefulSet", Path: "spec/template/spec/containers[*]/image"},
+					{Group: "apps", Kind: "StatefulSet", Path: "spec/template/spec/initContainers[*]/image"},
+					{Group: "apps", Kind: "ReplicaSet", Path: "spec/template/spec/containers[*]/image"},
+					// batch/v1 workloads
+					{Group: "batch", Kind: "Job", Path: "spec/template/spec/containers[*]/image"},
+					{Group: "batch", Kind: "Job", Path: "spec/template/spec/initContainers[*]/image"},
+					{Group: "batch", Kind: "CronJob", Path: "spec/jobTemplate/spec/template/spec/containers[*]/image"},
+					{Group: "batch", Kind: "CronJob", Path: "spec/jobTemplate/spec/template/spec/initContainers[*]/image"},
 				},
 			},
 			{
@@ -115,6 +117,48 @@ func DefaultConfig() *Config {
 				TemplateDelimRight: ">>",
 			},
 		},
+
+		// SuppressedKinds lists well-known Kubernetes resource types that never
+		// carry OCI artifact references. They are silently excluded from the
+		// unknown_kinds section of the coverage report.
+		// Add repo-specific CRDs (e.g. ClusterIssuer) in your --config file.
+		SuppressedKinds: []SuppressedKind{
+			// core (v1)
+			{Kind: "ConfigMap"},
+			{Kind: "Endpoints"},
+			{Kind: "LimitRange"},
+			{Kind: "Namespace"},
+			{Kind: "Node"},
+			{Kind: "PersistentVolume"},
+			{Kind: "PersistentVolumeClaim"},
+			{Kind: "ResourceQuota"},
+			{Kind: "Secret"},
+			{Kind: "Service"},
+			{Kind: "ServiceAccount"},
+			// apps/v1
+			{Group: "apps", Kind: "ControllerRevision"},
+			// networking.k8s.io
+			{Group: "networking.k8s.io", Kind: "Ingress"},
+			{Group: "networking.k8s.io", Kind: "IngressClass"},
+			{Group: "networking.k8s.io", Kind: "NetworkPolicy"},
+			// rbac.authorization.k8s.io
+			{Group: "rbac.authorization.k8s.io", Kind: "ClusterRole"},
+			{Group: "rbac.authorization.k8s.io", Kind: "ClusterRoleBinding"},
+			{Group: "rbac.authorization.k8s.io", Kind: "Role"},
+			{Group: "rbac.authorization.k8s.io", Kind: "RoleBinding"},
+			// storage.k8s.io
+			{Group: "storage.k8s.io", Kind: "StorageClass"},
+			{Group: "storage.k8s.io", Kind: "VolumeAttachment"},
+			// policy
+			{Group: "policy", Kind: "PodDisruptionBudget"},
+			// autoscaling
+			{Group: "autoscaling", Kind: "HorizontalPodAutoscaler"},
+			// apiextensions.k8s.io
+			{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"},
+			// admissionregistration.k8s.io
+			{Group: "admissionregistration.k8s.io", Kind: "MutatingWebhookConfiguration"},
+			{Group: "admissionregistration.k8s.io", Kind: "ValidatingWebhookConfiguration"},
+		},
 	}
 }
 
@@ -135,9 +179,10 @@ func Load(path string) (*Config, error) {
 // The base is never modified; a new Config is returned.
 func Merge(base, overlay *Config) *Config {
 	return &Config{
-		FieldTypes:           append(append([]FieldType{}, base.FieldTypes...), overlay.FieldTypes...),
-		Synthesizers:         append(append([]Synthesizer{}, base.Synthesizers...), overlay.Synthesizers...),
-		Resolvers:            append(append([]Resolver{}, base.Resolvers...), overlay.Resolvers...),
+		FieldTypes:      append(append([]FieldType{}, base.FieldTypes...), overlay.FieldTypes...),
+		Synthesizers:    append(append([]Synthesizer{}, base.Synthesizers...), overlay.Synthesizers...),
+		Resolvers:       append(append([]Resolver{}, base.Resolvers...), overlay.Resolvers...),
 		InlineExpanders: append(append([]InlineExpander{}, base.InlineExpanders...), overlay.InlineExpanders...),
+		SuppressedKinds: append(append([]SuppressedKind{}, base.SuppressedKinds...), overlay.SuppressedKinds...),
 	}
 }

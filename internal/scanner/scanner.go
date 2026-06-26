@@ -3,10 +3,13 @@ package scanner
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/coverage"
 	"github.com/builver/manifest-ref-scanner/internal/expander"
+	"github.com/builver/manifest-ref-scanner/internal/heuristic"
 	"github.com/builver/manifest-ref-scanner/internal/registry"
 	"github.com/builver/manifest-ref-scanner/internal/resolver"
 	"github.com/builver/manifest-ref-scanner/internal/synth"
@@ -35,6 +38,9 @@ type Options struct {
 	KustomizeOverlayFilter []string
 	// Verbose prints per-phase timing to stderr.
 	Verbose bool
+	// CoverageOutput is the file path to write the coverage report to.
+	// When empty, no coverage report is produced.
+	CoverageOutput string
 }
 
 // DefaultOptions returns Options with sensible defaults.
@@ -45,6 +51,8 @@ func DefaultOptions() Options {
 // Result holds the artifacts discovered by a scan.
 type Result struct {
 	Artifacts []*registry.Artifact
+	// Coverage is populated only when Options.CoverageOutput is non-empty.
+	Coverage *coverage.Report
 }
 
 // Scan performs a two-pass scan of a GitOps repository root.
@@ -95,12 +103,122 @@ func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
 
 	// Pass 2: resolve chains and extract OCI artifact references
 	t = time.Now()
-	artifacts, err := resolver.Resolve(reg, cfg)
+	artifacts, unresolved, err := resolver.Resolve(reg, cfg)
 	if err != nil {
 		return nil, err
 	}
 	log("pass2  resolver:   %d artifacts in %s", len(artifacts), time.Since(t).Round(time.Millisecond))
 	log("total:             %s", time.Since(total).Round(time.Millisecond))
 
-	return &Result{Artifacts: artifacts}, nil
+	cov := buildCoverage(reg, cfg, unresolved, artifacts)
+	if opts.CoverageOutput != "" {
+		enrichCoverage(cov, reg, artifacts)
+	}
+
+	return &Result{Artifacts: artifacts, Coverage: cov}, nil
+}
+
+// buildCoverage computes the coverage report.
+// UnresolvedChains and UnknownKinds are always computed (cheap, already in memory).
+// HeuristicHits are only computed when coverageOutput is set (string regex walk).
+func buildCoverage(
+	reg *registry.Registry,
+	cfg *config.Config,
+	unresolved []coverage.UnresolvedChain,
+	artifacts []*registry.Artifact,
+) *coverage.Report {
+	return &coverage.Report{
+		UnresolvedChains: unresolved,
+		UnknownKinds:     unknownKinds(reg, cfg),
+	}
+}
+
+// enrichCoverage adds the heuristic string scan results to an existing report.
+func enrichCoverage(rep *coverage.Report, reg *registry.Registry, artifacts []*registry.Artifact) {
+	knownRefs := make(map[string]bool, len(artifacts))
+	for _, a := range artifacts {
+		knownRefs[a.Reference] = true
+	}
+	rep.HeuristicHits = heuristic.Scan(reg.All(), knownRefs)
+}
+
+// unknownKinds returns KindSummary entries for every kind+group combination
+// found in the registry that has no configuration in any FieldType target,
+// Resolver source, Synthesizer source/output, or InlineExpander source,
+// and is not listed in SuppressedKinds.
+func unknownKinds(reg *registry.Registry, cfg *config.Config) []coverage.KindSummary {
+	type kindKey struct{ kind, group string }
+
+	configured := make(map[kindKey]bool)
+	for _, ft := range cfg.FieldTypes {
+		for _, tgt := range ft.Targets {
+			configured[kindKey{tgt.Kind, tgt.Group}] = true
+		}
+	}
+	for _, r := range cfg.Resolvers {
+		configured[kindKey{r.FromKind, r.FromGroup}] = true
+	}
+	for _, s := range cfg.Synthesizers {
+		configured[kindKey{s.FromKind, s.FromGroup}] = true
+		configured[kindKey{s.Emits.Kind, ""}] = true
+	}
+	for _, ie := range cfg.InlineExpanders {
+		configured[kindKey{ie.FromKind, ie.FromGroup}] = true
+	}
+
+	suppressed := make(map[kindKey]bool, len(cfg.SuppressedKinds))
+	for _, sk := range cfg.SuppressedKinds {
+		suppressed[kindKey{sk.Kind, sk.Group}] = true
+	}
+
+	type entry struct {
+		count int
+		files map[string]bool
+	}
+	byKind := make(map[kindKey]*entry)
+	for _, res := range reg.All() {
+		if res.Synthetic {
+			continue
+		}
+		group := registry.GroupFromAPIVersion(res.APIVersion)
+		k := kindKey{res.Kind, group}
+		if configured[k] || suppressed[k] {
+			continue
+		}
+		e := byKind[k]
+		if e == nil {
+			e = &entry{files: make(map[string]bool)}
+			byKind[k] = e
+		}
+		e.count++
+		if res.SourceFile != "" {
+			e.files[res.SourceFile] = true
+		}
+	}
+
+	if len(byKind) == 0 {
+		return nil
+	}
+
+	summaries := make([]coverage.KindSummary, 0, len(byKind))
+	for k, e := range byKind {
+		files := make([]string, 0, len(e.files))
+		for f := range e.files {
+			files = append(files, f)
+		}
+		sort.Strings(files)
+		summaries = append(summaries, coverage.KindSummary{
+			Kind:  k.kind,
+			Group: k.group,
+			Count: e.count,
+			Files: files,
+		})
+	}
+	sort.Slice(summaries, func(i, j int) bool {
+		if summaries[i].Kind != summaries[j].Kind {
+			return summaries[i].Kind < summaries[j].Kind
+		}
+		return summaries[i].Group < summaries[j].Group
+	})
+	return summaries
 }

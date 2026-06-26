@@ -1,0 +1,15 @@
+# cert-manager (cert-manager.io / acme.cert-manager.io)
+# cert-manager CRDs manage TLS certificates and issuers; none carry OCI artifact references.
+suppressedKinds:
+  - group: cert-manager.io
+    kind: Certificate
+  - group: cert-manager.io
+    kind: CertificateRequest
+  - group: cert-manager.io
+    kind: ClusterIssuer
+  - group: cert-manager.io
+    kind: Issuer
+  - group: acme.cert-manager.io
+    kind: Challenge
+  - group: acme.cert-manager.io
+    kind: Order

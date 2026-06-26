@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/builver/manifest-ref-scanner/internal/config"
@@ -190,14 +191,7 @@ func TestScan_Config_Synthesizer_NoConfig(t *testing.T) {
 		t.Fatalf("Scan: %v", err)
 	}
 
-	hasUnresolved := false
-	for _, art := range result.Artifacts {
-		if art.FieldType == "unresolved" {
-			hasUnresolved = true
-			break
-		}
-	}
-	if !hasUnresolved {
+	if len(result.Coverage.UnresolvedChains) == 0 {
 		t.Error("without synthesizer config the Kustomization sourceRef should be unresolved")
 	}
 }
@@ -297,6 +291,50 @@ func TestScan_Config_InlineExpander_NoConfig(t *testing.T) {
 		if art.Reference == "registry.example.com/myapp:v7.0.0-staging" ||
 			art.Reference == "registry.example.com/myapp:v7.0.0-prod" {
 			t.Errorf("without custom expander config ApplicationSet artifacts should not appear: %s", art.Reference)
+		}
+	}
+}
+
+// --- Coverage: unknown kinds ---
+
+// TestCoverage_StandardWorkloadsNotUnknown verifies that standard Kubernetes workload
+// kinds (Deployment, DaemonSet, Job, Pod, etc.) do NOT appear in unknown_kinds even
+// though defaults.go uses Group:"" (wildcard) for them and the actual resources carry
+// an explicit API group (apps/v1, batch/v1, v1).
+// The extraction must also work: container images should be found.
+func TestCoverage_StandardWorkloadsNotUnknown(t *testing.T) {
+	result, err := Scan("testdata/coverage", config.DefaultConfig(), DefaultOptions())
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	// All four images must be extracted — confirms the extraction path is correct
+	// regardless of what the coverage report says.
+	wantRefs := []string{"nginx:1.25.0", "fluent-bit:3.0.0", "migrator:v1.0.0", "busybox:1.36"}
+	for _, want := range wantRefs {
+		found := false
+		for _, art := range result.Artifacts {
+			if strings.Contains(art.Reference, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("artifact containing %q not found in output", want)
+		}
+	}
+
+	// Standard workload kinds must not appear in unknown_kinds.
+	// They have a configured extraction target; reporting them as unknown is a bug
+	// caused by unknownKinds using exact group matching while matchesTarget treats
+	// Group:"" as a wildcard that covers any API group.
+	knownWorkloads := map[string]bool{
+		"Deployment": true, "DaemonSet": true, "StatefulSet": true,
+		"ReplicaSet": true, "Job": true, "CronJob": true, "Pod": true,
+	}
+	for _, k := range result.Coverage.UnknownKinds {
+		if knownWorkloads[k.Kind] {
+			t.Errorf("kind %q (group %q) must not appear in unknown_kinds — it has a configured extraction target", k.Kind, k.Group)
 		}
 	}
 }

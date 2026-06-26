@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/coverage"
 	"github.com/builver/manifest-ref-scanner/internal/patheval"
 	"github.com/builver/manifest-ref-scanner/internal/refparser"
 	"github.com/builver/manifest-ref-scanner/internal/registry"
@@ -17,8 +18,11 @@ import (
 // Step A extracts OCI refs directly from resources that carry them.
 // Step B follows resolver chains (e.g. Kustomization → OCIRepository).
 // Results are deduplicated by raw ref + field type, keeping the longest chain.
-func Resolve(reg *registry.Registry, cfg *config.Config) ([]*registry.Artifact, error) {
+// Unresolved chains (references to resources not in the registry) are returned
+// separately and are never included in the artifact list.
+func Resolve(reg *registry.Registry, cfg *config.Config) ([]*registry.Artifact, []coverage.UnresolvedChain, error) {
 	var artifacts []*registry.Artifact
+	var unresolved []coverage.UnresolvedChain
 
 	for _, res := range reg.All() {
 		group := registry.GroupFromAPIVersion(res.APIVersion)
@@ -39,15 +43,16 @@ func Resolve(reg *registry.Registry, cfg *config.Config) ([]*registry.Artifact, 
 			if r.FromGroup != group || r.FromKind != res.Kind {
 				continue
 			}
-			arts, err := followResolver(reg, cfg, res, r, nil)
+			arts, chains, err := followResolver(reg, cfg, res, r, nil)
 			if err != nil {
-				fmt.Printf("warn: resolver %s on %s/%s: %v\n", r.Name, res.Kind, res.Name, err)
+				fmt.Fprintf(os.Stderr, "warn: resolver %s on %s/%s: %v\n", r.Name, res.Kind, res.Name, err)
 			}
 			artifacts = append(artifacts, arts...)
+			unresolved = append(unresolved, chains...)
 		}
 	}
 
-	return dedup(artifacts), nil
+	return dedup(artifacts), unresolved, nil
 }
 
 func followResolver(
@@ -56,14 +61,14 @@ func followResolver(
 	res *registry.Resource,
 	r config.Resolver,
 	chain []registry.ResolutionStep,
-) ([]*registry.Artifact, error) {
+) ([]*registry.Artifact, []coverage.UnresolvedChain, error) {
 	refObjs := patheval.GetObject(res.Raw, r.Path)
 	if len(refObjs) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	refMap, ok := refObjs[0].(map[string]interface{})
 	if !ok {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	kind := renderField(r.Resolves.Kind, refMap)
@@ -87,13 +92,16 @@ func followResolver(
 
 	targets := reg.GetAll(kind, namespace, name)
 	if len(targets) == 0 {
-		art := &registry.Artifact{
-			FieldType:  "unresolved",
-			Reference:  fmt.Sprintf("%s/%s/%s", kind, namespace, name),
-			Resolution: chain,
-			Warnings:   []string{fmt.Sprintf("could not find %s/%s in registry", kind, name)},
+		fmt.Fprintf(os.Stderr, "warn: unresolved reference: %s/%s/%s referenced from %s via %s\n",
+			kind, namespace, name, res.SourceFile, r.Path)
+		uc := coverage.UnresolvedChain{
+			Kind:           kind,
+			Name:           name,
+			Namespace:      namespace,
+			ReferencedFrom: res.SourceFile,
+			Via:            r.Path,
 		}
-		return []*registry.Artifact{art}, nil
+		return nil, []coverage.UnresolvedChain{uc}, nil
 	}
 
 	if len(targets) > 1 {
@@ -102,6 +110,7 @@ func followResolver(
 	}
 
 	var artifacts []*registry.Artifact
+	var unresolved []coverage.UnresolvedChain
 	for _, target := range targets {
 		targetGroup := registry.GroupFromAPIVersion(target.APIVersion)
 
@@ -120,13 +129,14 @@ func followResolver(
 				if r2.FromGroup != targetGroup || r2.FromKind != target.Kind {
 					continue
 				}
-				arts, _ := followResolver(reg, cfg, target, r2, chain)
+				arts, chains, _ := followResolver(reg, cfg, target, r2, chain)
 				artifacts = append(artifacts, arts...)
+				unresolved = append(unresolved, chains...)
 			}
 		}
 	}
 
-	return artifacts, nil
+	return artifacts, unresolved, nil
 }
 
 func extractFromTarget(res *registry.Resource, fieldType, valueType string, target config.FieldTarget) []*registry.Artifact {

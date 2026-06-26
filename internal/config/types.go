@@ -20,6 +20,20 @@ type Config struct {
 	Synthesizers    []Synthesizer    `yaml:"synthesizers"`
 	Resolvers       []Resolver       `yaml:"resolvers"`
 	InlineExpanders []InlineExpander `yaml:"inlineExpanders"`
+	// SuppressedKinds lists resource kinds that are known to never carry OCI
+	// artifact references. They are silently excluded from the unknown_kinds
+	// section of the coverage report. Built-in defaults cover standard Kubernetes
+	// types; add repo-specific CRDs (e.g. ClusterIssuer) via --config.
+	SuppressedKinds []SuppressedKind `yaml:"suppressedKinds"`
+}
+
+// SuppressedKind identifies a resource kind that is known not to carry OCI
+// artifact references and should be omitted from coverage reports.
+// Group must be the exact API group (e.g. "cert-manager.io"); use "" for
+// core (v1) resources such as Namespace or ConfigMap.
+type SuppressedKind struct {
+	Group string `yaml:"group,omitempty"`
+	Kind  string `yaml:"kind"`
 }
 
 // FieldType defines a named category of reference (e.g. "containerImage")
