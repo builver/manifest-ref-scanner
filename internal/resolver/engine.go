@@ -3,6 +3,7 @@ package resolver
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"text/template"
 
@@ -84,8 +85,8 @@ func followResolver(
 	}
 	chain = append(chain, step)
 
-	target, found := reg.Get(kind, namespace, name)
-	if !found {
+	targets := reg.GetAll(kind, namespace, name)
+	if len(targets) == 0 {
 		art := &registry.Artifact{
 			FieldType:  "unresolved",
 			Reference:  fmt.Sprintf("%s/%s/%s", kind, namespace, name),
@@ -95,26 +96,33 @@ func followResolver(
 		return []*registry.Artifact{art}, nil
 	}
 
-	var artifacts []*registry.Artifact
-	targetGroup := registry.GroupFromAPIVersion(target.APIVersion)
-
-	for _, ft := range cfg.FieldTypes {
-		for _, tgt := range ft.Targets {
-			if !matchesTarget(targetGroup, target.Kind, tgt) {
-				continue
-			}
-			arts := extractFromTargetWithChain(target, ft.Name, ft.ValueType, tgt, chain)
-			artifacts = append(artifacts, arts...)
-		}
+	if len(targets) > 1 {
+		fmt.Fprintf(os.Stderr, "warn: chain to %s/%s/%s is ambiguous (%d versions in registry); resolving all\n",
+			kind, namespace, name, len(targets))
 	}
 
-	if len(chain) < 10 {
-		for _, r2 := range cfg.Resolvers {
-			if r2.FromGroup != targetGroup || r2.FromKind != target.Kind {
-				continue
+	var artifacts []*registry.Artifact
+	for _, target := range targets {
+		targetGroup := registry.GroupFromAPIVersion(target.APIVersion)
+
+		for _, ft := range cfg.FieldTypes {
+			for _, tgt := range ft.Targets {
+				if !matchesTarget(targetGroup, target.Kind, tgt) {
+					continue
+				}
+				arts := extractFromTargetWithChain(target, ft.Name, ft.ValueType, tgt, chain)
+				artifacts = append(artifacts, arts...)
 			}
-			arts, _ := followResolver(reg, cfg, target, r2, chain)
-			artifacts = append(artifacts, arts...)
+		}
+
+		if len(chain) < 10 {
+			for _, r2 := range cfg.Resolvers {
+				if r2.FromGroup != targetGroup || r2.FromKind != target.Kind {
+					continue
+				}
+				arts, _ := followResolver(reg, cfg, target, r2, chain)
+				artifacts = append(artifacts, arts...)
+			}
 		}
 	}
 

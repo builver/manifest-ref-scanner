@@ -2,14 +2,13 @@ package registry
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
 // Registry is an in-memory store of all collected resources keyed by kind/namespace/name.
 // It is built during Pass 1 and queried during Pass 2 resolution.
 type Registry struct {
-	resources        map[string]*Resource
+	byKey            map[string][]*Resource
 	all              []*Resource // preserves insertion order for deterministic output
 	DefaultNamespace string      // used as last-resort fallback when a ref omits namespace
 }
@@ -20,58 +19,53 @@ type Registry struct {
 // and the cluster-scoped empty-namespace key).
 func New(defaultNamespace string) *Registry {
 	return &Registry{
-		resources:        make(map[string]*Resource),
+		byKey:            make(map[string][]*Resource),
 		DefaultNamespace: defaultNamespace,
 	}
 }
 
-// Add inserts a resource. When two resources share the same kind/namespace/name
-// but come from different kustomize overlays, both are kept in the iteration
-// list so each overlay's version gets independently resolved — this is expected
-// when multiple overlays render the same resource with different field values.
-// Any other duplicate (same source or plain-file collision) logs a warning and
-// the later entry wins in the lookup map.
+// Add inserts a resource. Every resource is stored regardless of duplicates;
+// ambiguity between multiple resources sharing the same kind/namespace/name is
+// handled at query time by GetAll, not at insertion time.
 func (r *Registry) Add(res *Resource) {
 	key := resourceKey(res.Kind, res.Namespace, res.Name)
-	existing, exists := r.resources[key]
-	r.resources[key] = res
-
-	if !exists {
-		r.all = append(r.all, res)
-		return
-	}
-
-	// Different kustomize overlays may render the same resource kind/name with
-	// different values (e.g. staging vs production image tags). Keep both in
-	// r.all so the resolver extracts refs from each independently.
-	if existing.KustomizeDir != "" && res.KustomizeDir != "" && existing.KustomizeDir != res.KustomizeDir {
-		r.all = append(r.all, res)
-		return
-	}
-
-	fmt.Fprintf(os.Stderr, "warn: duplicate resource %s, later entry wins\n", key)
+	r.byKey[key] = append(r.byKey[key], res)
+	r.all = append(r.all, res)
 }
 
-// Get looks up a resource by kind, namespace, and name.
-// Fallback order:
+// Get returns one resource for the given key using the namespace fallback chain
+// described on GetAll. When multiple resources share the key (e.g. the same
+// resource name rendered by two different kustomize overlays), the last-registered
+// one is returned. Callers that need all versions should use GetAll instead.
+func (r *Registry) Get(kind, namespace, name string) (*Resource, bool) {
+	all := r.GetAll(kind, namespace, name)
+	if len(all) == 0 {
+		return nil, false
+	}
+	return all[len(all)-1], true
+}
+
+// GetAll returns every resource matching kind/namespace/name, including
+// resources from different kustomize overlays or source files.
+// Fallback order when no exact match is found:
 //  1. Exact kind/namespace/name
 //  2. Cluster-scoped (empty namespace)
-//  3. DefaultNamespace (if the caller did not supply a namespace)
-func (r *Registry) Get(kind, namespace, name string) (*Resource, bool) {
-	if res, ok := r.resources[resourceKey(kind, namespace, name)]; ok {
-		return res, true
+//  3. DefaultNamespace (only when namespace was omitted by the caller)
+func (r *Registry) GetAll(kind, namespace, name string) []*Resource {
+	if res := r.byKey[resourceKey(kind, namespace, name)]; len(res) > 0 {
+		return res
 	}
 	// Cluster-scoped resources have no namespace.
-	if res, ok := r.resources[resourceKey(kind, "", name)]; ok {
-		return res, true
+	if res := r.byKey[resourceKey(kind, "", name)]; len(res) > 0 {
+		return res
 	}
 	// When the reference omits a namespace, try the configured default.
 	if namespace == "" && r.DefaultNamespace != "" {
-		if res, ok := r.resources[resourceKey(kind, r.DefaultNamespace, name)]; ok {
-			return res, true
+		if res := r.byKey[resourceKey(kind, r.DefaultNamespace, name)]; len(res) > 0 {
+			return res
 		}
 	}
-	return nil, false
+	return nil
 }
 
 // All returns every resource in insertion order.
