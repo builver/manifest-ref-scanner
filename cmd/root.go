@@ -7,6 +7,7 @@ import (
 
 	"github.com/patri/manifest-ref-scanner/internal/config"
 	"github.com/patri/manifest-ref-scanner/internal/output"
+	"github.com/patri/manifest-ref-scanner/internal/registry"
 	"github.com/patri/manifest-ref-scanner/internal/scanner"
 	"github.com/spf13/cobra"
 )
@@ -23,12 +24,14 @@ var (
 	format           string
 	formatConfigFile string
 	rawArgs          []string
+	excludeRefGlobs  []string
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "manifest-ref-scanner [path]",
-	Short: "Scan a Kubernetes GitOps repository for OCI artifact references",
-	Args:  cobra.ExactArgs(1),
+	Use:          "manifest-ref-scanner [path]",
+	Short:        "Scan a Kubernetes GitOps repository for OCI artifact references",
+	Args:         cobra.ExactArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.DefaultConfig()
 
@@ -53,6 +56,10 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("scan: %w", err)
 		}
 
+		if len(excludeRefGlobs) > 0 {
+			result.Artifacts = filterArtifacts(result.Artifacts, excludeRefGlobs)
+		}
+
 		w := os.Stdout
 		if outputFile != "" {
 			f, err := os.Create(outputFile)
@@ -63,7 +70,7 @@ var rootCmd = &cobra.Command{
 			w = f
 		}
 
-		formatter, err := resolveFormatter(format, formatConfigFile, rawArgs)
+		formatter, err := resolveFormatter(format, formatConfigFile, rawArgs, args[0])
 		if err != nil {
 			return err
 		}
@@ -72,9 +79,27 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// filterArtifacts drops artifacts whose Reference contains any of the given patterns.
+func filterArtifacts(arts []*registry.Artifact, patterns []string) []*registry.Artifact {
+	out := make([]*registry.Artifact, 0, len(arts))
+	for _, a := range arts {
+		excluded := false
+		for _, p := range patterns {
+			if strings.Contains(a.Reference, p) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 // resolveFormatter picks the right Formatter based on flags.
 // Priority: --format-config (custom file) > --format (named built-in) > default YAML.
-func resolveFormatter(format, formatConfigFile string, rawArgs []string) (output.Formatter, error) {
+func resolveFormatter(format, formatConfigFile string, rawArgs []string, scanPath string) (output.Formatter, error) {
 	templateArgs, err := parseArgs(rawArgs)
 	if err != nil {
 		return nil, err
@@ -85,7 +110,7 @@ func resolveFormatter(format, formatConfigFile string, rawArgs []string) (output
 		if err != nil {
 			return nil, err
 		}
-		return output.NewTemplateFormatter(cfg, templateArgs)
+		return output.NewTemplateFormatter(cfg, templateArgs, scanPath)
 	}
 
 	if format != "" && format != "yaml" {
@@ -93,7 +118,7 @@ func resolveFormatter(format, formatConfigFile string, rawArgs []string) (output
 		if !ok {
 			return nil, fmt.Errorf("unknown --format %q; valid values: yaml, ocm, bom (or use --format-config for a custom template)", format)
 		}
-		return output.NewTemplateFormatter(cfg, templateArgs)
+		return output.NewTemplateFormatter(cfg, templateArgs, scanPath)
 	}
 
 	return &output.YAMLFormatter{}, nil
@@ -130,4 +155,5 @@ func init() {
 	rootCmd.Flags().StringVarP(&format, "format", "f", "yaml", `output format: yaml (default), ocm, bom`)
 	rootCmd.Flags().StringVar(&formatConfigFile, "format-config", "", "path to a custom output format config YAML file (overrides --format)")
 	rootCmd.Flags().StringArrayVar(&rawArgs, "arg", nil, "template argument as key=value (repeatable); overrides args defined in --format-config or built-in defaults")
+	rootCmd.Flags().StringArrayVar(&excludeRefGlobs, "exclude-ref", nil, "exclude artifacts whose reference contains this substring (repeatable)")
 }

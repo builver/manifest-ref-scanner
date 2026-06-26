@@ -155,3 +155,9 @@ The following drawbacks are known and tracked for future work:
 - **`HelmChart` resources are not covered.**
   The `HelmChart` CRD (used when `HelmRelease.spec.chart` points to a `HelmRepository`) has its own `spec.chart` and `spec.version` fields which are not currently extracted.
 
+
+### Issues
+ - fix module url in go file (github.io/patri does not exist) its "github.com/builver/manifest-ref-scanner"
+ - test against argocd repo
+ - change field "Reference" to have the content of "imageRef" from ocm and remove imageRef
+ - add new raw field which contains the literal string from the source file

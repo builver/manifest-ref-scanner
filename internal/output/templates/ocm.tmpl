@@ -1,16 +1,16 @@
-meta:
-  schemaVersion: v2
-component:
-  name: {{ required "component" .Args.component }}
-  version: {{ required "version" .Args.version }}
-  provider: {{ default "unknown" .Args.provider }}
+{{- validateSemverAll .Artifacts -}}
+components:
+- name: {{ default (base .ScanPath) .Args.component }}
+  version: "{{ default "0.1.0" .Args.version }}"
+  provider:
+    name: {{ default "unknown" .Args.provider }}
   resources:
 {{- range uniqueByRaw .Artifacts }}
+{{- $ver := requireSemver . }}
   - name: {{ if .Repository }}{{ sanitizeName .Repository }}{{ else }}{{ sanitizeName .Reference }}{{ end }}
     type: ociImage
-    version: {{ or .Tag .Digest "unknown" }}
-    relation: external
+    version: "{{ $ver }}"
     access:
       type: ociArtifact
-      imageReference: {{ .Reference }}
+      imageReference: {{ imageRef . $ver }}
 {{- end }}

@@ -34,12 +34,17 @@ type FieldType struct {
 // Use Path for a fully merged "registry/repo:tag" value.
 // Use NamePath + TagPaths when the image name and tag live in separate fields.
 // TagPaths is tried in order; the first non-empty value wins.
+// SemverPaths lists paths whose values are semver range selectors (e.g. spec/ref/semver).
+// A semver range is NOT a real OCI tag — it is stored in Ref["semver"] and excluded from
+// the combined reference URL. TagPaths take priority: SemverPaths are only consulted when
+// no TagPaths value is found.
 type FieldTarget struct {
-	Group    string   `yaml:"group"`    // empty string = core group
-	Kind     string   `yaml:"kind"`
-	Path     string   `yaml:"path"`     // e.g. spec/containers[*]/image
-	NamePath string   `yaml:"namePath"` // e.g. spec/image/repository
-	TagPaths []string `yaml:"tagPaths"` // e.g. ["spec/ref/tag", "spec/ref/semver"]
+	Group       string   `yaml:"group"`       // empty string = core group
+	Kind        string   `yaml:"kind"`
+	Path        string   `yaml:"path"`        // e.g. spec/containers[*]/image
+	NamePath    string   `yaml:"namePath"`    // e.g. spec/image/repository
+	TagPaths    []string `yaml:"tagPaths"`    // e.g. ["spec/ref/tag"]
+	SemverPaths []string `yaml:"semverPaths"` // e.g. ["spec/ref/semver"] — range selectors, not real tags
 }
 
 // Synthesizer declares that a resource implicitly creates another resource at runtime.

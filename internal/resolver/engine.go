@@ -160,8 +160,9 @@ func extractFromTargetWithChain(
 			arts = append(arts, buildArtifact(fieldType, valueType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
 		}
 
-	case target.Path != "" && len(target.TagPaths) > 0:
-		// URL in Path, tag resolved from TagPaths in order (first non-empty wins)
+	case target.Path != "" && (len(target.TagPaths) > 0 || len(target.SemverPaths) > 0):
+		// URL in Path; tag resolved from TagPaths (real OCI tags) then SemverPaths (range selectors).
+		// A semver range is stored in Ref["semver"] and excluded from the combined reference URL.
 		names := patheval.Get(res.Raw, target.Path)
 		for i, name := range names {
 			tag := ""
@@ -172,7 +173,19 @@ func extractFromTargetWithChain(
 					break
 				}
 			}
-			arts = append(arts, buildArtifact(fieldType, valueType, combinedRef(name, tag), tag, nil, fullChain, res.KustomizeDir))
+
+			var extraRef map[string]string
+			if tag == "" {
+				for _, sp := range target.SemverPaths {
+					vals := patheval.Get(res.Raw, sp)
+					if i < len(vals) && vals[i] != "" {
+						extraRef = map[string]string{"semver": vals[i]}
+						break
+					}
+				}
+			}
+
+			arts = append(arts, buildArtifact(fieldType, valueType, combinedRef(name, tag), tag, extraRef, fullChain, res.KustomizeDir))
 		}
 
 	case target.Path != "":

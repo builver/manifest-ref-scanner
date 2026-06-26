@@ -35,8 +35,9 @@ func DefaultConfig() *Config {
 			{
 				Name: "ociArtifact",
 				Targets: []FieldTarget{
-					// Flux OCIRepository — the canonical OCI source
-					{Group: "source.toolkit.fluxcd.io", Kind: "OCIRepository", Path: "spec/url", TagPaths: []string{"spec/ref/tag", "spec/ref/semver"}},
+					// Flux OCIRepository — the canonical OCI source.
+					// spec/ref/tag is a real OCI tag; spec/ref/semver is a range selector (not a tag).
+					{Group: "source.toolkit.fluxcd.io", Kind: "OCIRepository", Path: "spec/url", TagPaths: []string{"spec/ref/tag"}, SemverPaths: []string{"spec/ref/semver"}},
 					// FluxInstance distribution artifact (fully merged ref)
 					{Group: "fluxcd.controlplane.io", Kind: "FluxInstance", Path: "spec/distribution/artifact"},
 					// HelmRepository (OCI-based)

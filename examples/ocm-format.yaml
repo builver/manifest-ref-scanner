@@ -1,5 +1,6 @@
 # Custom format config that reproduces the built-in "ocm" format.
-# Use as a starting point for customizing OCM component descriptor output.
+# Use as a starting point for customizing OCM component constructor output.
+# See: https://ocm.software/docs/getting-started/create-component-version/
 #
 # Usage:
 #   manifest-ref-scanner ./gitops \
@@ -14,19 +15,17 @@ args:
   provider: ""    # optional: provider name; defaults to "unknown"
 
 template: |
-  meta:
-    schemaVersion: v2
-  component:
-    name: {{ required "component" .Args.component }}
-    version: {{ required "version" .Args.version }}
-    provider: {{ default "unknown" .Args.provider }}
+  components:
+  - name: {{ required "component" .Args.component }}
+    version: "{{ required "version" .Args.version }}"
+    provider:
+      name: {{ default "unknown" .Args.provider }}
     resources:
   {{- range uniqueByRaw .Artifacts }}
     - name: {{ if .Repository }}{{ sanitizeName .Repository }}{{ else }}{{ sanitizeName .Reference }}{{ end }}
       type: ociImage
-      version: {{ or .Tag .Digest "unknown" }}
-      relation: external
+      version: "{{ or .Tag .Digest "unknown" }}"
       access:
         type: ociArtifact
-        imageReference: {{ .Reference }}
+        imageReference: {{ trimPrefix "oci://" .Reference }}
   {{- end }}

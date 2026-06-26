@@ -37,7 +37,7 @@ func TestScan_ExpectedArtifacts(t *testing.T) {
 		"oci://ghcr.io/example/flux-manifests:v2.0.0",    // FluxInstance.distribution.artifact
 		"oci://ghcr.io/example/my-gitops:latest",         // Kustomization → synthesized OCIRepository
 		"oci://ghcr.io/example/charts/my-app:v1.2.3",     // HelmRelease → tagged OCIRepository
-		"oci://ghcr.io/example/charts/versioned:>=1.0.0", // HelmRelease → semver OCIRepository
+		"oci://ghcr.io/example/charts/versioned", // HelmRelease → semver OCIRepository (range in Ref["semver"])
 		"oci://ghcr.io/example/inline-chart:v3.0.0",      // inline OCIRepository from ResourceSet
 	}
 	for _, raw := range want {
@@ -108,23 +108,26 @@ func TestScan_ResourceSetExpansion(t *testing.T) {
 	}
 }
 
-// TestScan_SemverRef verifies that a semver constraint (spec.ref.semver) is treated
-// as a regular tag: appended to the URL and stored in artifact.tag.
+// TestScan_SemverRef verifies that a semver constraint (spec.ref.semver) is stored in
+// Ref["semver"] and NOT embedded in the combined reference URL.
 func TestScan_SemverRef(t *testing.T) {
 	result := scan(t)
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Reference != "oci://ghcr.io/example/charts/versioned:>=1.0.0" {
+		if art.Reference != "oci://ghcr.io/example/charts/versioned" {
 			continue
 		}
 		found = true
-		if art.Tag != ">=1.0.0" {
-			t.Errorf("semver artifact: tag = %q, want >=1.0.0", art.Tag)
+		if art.Tag != "" {
+			t.Errorf("semver artifact: tag = %q, want empty (range lives in Ref[semver])", art.Tag)
+		}
+		if art.Ref["semver"] != ">=1.0.0" {
+			t.Errorf("semver artifact: Ref[semver] = %q, want >=1.0.0", art.Ref["semver"])
 		}
 	}
 	if !found {
-		t.Error("expected artifact oci://ghcr.io/example/charts/versioned:>=1.0.0 not found")
+		t.Error("expected artifact oci://ghcr.io/example/charts/versioned not found")
 	}
 }
 
