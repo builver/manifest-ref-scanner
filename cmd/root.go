@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/patri/manifest-ref-scanner/internal/config"
-	"github.com/patri/manifest-ref-scanner/internal/output"
-	"github.com/patri/manifest-ref-scanner/internal/registry"
-	"github.com/patri/manifest-ref-scanner/internal/scanner"
+	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/output"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/scanner"
 	"github.com/spf13/cobra"
 )
 

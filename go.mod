@@ -1,4 +1,4 @@
-module github.com/patri/manifest-ref-scanner
+module github.com/builver/manifest-ref-scanner
 
 go 1.25.6
 

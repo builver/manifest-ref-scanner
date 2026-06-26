@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/patri/manifest-ref-scanner/internal/config"
-	"github.com/patri/manifest-ref-scanner/internal/patheval"
-	"github.com/patri/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/patheval"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 // Expand processes resources that embed inline child templates: for each configured

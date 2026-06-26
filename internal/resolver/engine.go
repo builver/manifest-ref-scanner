@@ -3,12 +3,13 @@ package resolver
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/template"
 
-	"github.com/patri/manifest-ref-scanner/internal/config"
-	"github.com/patri/manifest-ref-scanner/internal/patheval"
-	"github.com/patri/manifest-ref-scanner/internal/refparser"
-	"github.com/patri/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/patheval"
+	"github.com/builver/manifest-ref-scanner/internal/refparser"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 // Resolve runs Pass 2 against the fully-populated registry.
@@ -206,6 +207,13 @@ func combinedRef(name, tag string) string {
 }
 
 func buildArtifact(fieldType, valueType, raw, tagHint string, extraRef map[string]string, chain []registry.ResolutionStep, kustomizeDir string) *registry.Artifact {
+	// Copy chain and record the raw literal on the terminal step (the resource
+	// whose field directly contained the reference value).
+	chain = append([]registry.ResolutionStep(nil), chain...)
+	if len(chain) > 0 {
+		chain[len(chain)-1].Raw = raw
+	}
+
 	art := &registry.Artifact{
 		FieldType:  fieldType,
 		Reference:  raw,
@@ -224,13 +232,35 @@ func buildArtifact(fieldType, valueType, raw, tagHint string, extraRef map[strin
 		art.Repository = ref.Repository
 		art.Tag        = ref.Tag
 		art.Digest     = ref.Digest
+		if canonical := canonicalRef(ref.Registry, ref.Repository, ref.Tag, ref.Digest); canonical != "" {
+			art.Reference = canonical
+		} else {
+			art.Reference = strings.TrimPrefix(raw, "oci://")
+		}
 	} else {
 		if tagHint != "" {
 			art.Tag = tagHint
 		}
+		art.Reference = strings.TrimPrefix(raw, "oci://")
 		art.Warnings = append(art.Warnings, fmt.Sprintf("could not parse ref: %v", err))
 	}
 	return art
+}
+
+// canonicalRef builds the fully-qualified OCI reference from parsed components.
+// Returns empty string when registry and repository are both absent.
+func canonicalRef(reg, repo, tag, digest string) string {
+	if reg == "" && repo == "" {
+		return ""
+	}
+	base := reg + "/" + repo
+	if digest != "" {
+		return base + "@" + digest
+	}
+	if tag != "" {
+		return base + ":" + tag
+	}
+	return base
 }
 
 func matchesTarget(group, kind string, target config.FieldTarget) bool {
@@ -256,11 +286,11 @@ func renderField(tmpl string, data map[string]interface{}) string {
 	return result
 }
 
-// dedup collapses artifacts with identical (raw, fieldType) keys, keeping
+// dedup collapses artifacts with identical (reference, fieldType) keys, keeping
 // the entry with the longest resolution chain (richest context).
 // KustomizeOverlays from all duplicate entries are merged into the survivor.
 func dedup(arts []*registry.Artifact) []*registry.Artifact {
-	type key struct{ raw, fieldType string }
+	type key struct{ ref, fieldType string }
 	best := make(map[key]*registry.Artifact, len(arts))
 	// overlaysSeen tracks which overlay dirs have been recorded for each key,
 	// preserving order of first occurrence.
@@ -281,7 +311,7 @@ func dedup(arts []*registry.Artifact) []*registry.Artifact {
 	}
 
 	for _, art := range arts {
-		k := key{raw: art.Reference, fieldType: art.FieldType}
+		k := key{ref: art.Reference, fieldType: art.FieldType}
 		if existing, ok := best[k]; !ok {
 			order = append(order, k)
 			best[k] = art

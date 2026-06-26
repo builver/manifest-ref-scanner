@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/patri/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 // semverRe matches tags that are concrete semver versions (not ranges, aliases, or floating tags).
@@ -96,9 +96,17 @@ func semverErrorMsg(a *registry.Artifact) string {
 		}
 	}
 
+	// Show the raw literal from the source file so the user can grep for it directly.
+	display := a.Reference
+	if n := len(a.Resolution); n > 0 {
+		if r := a.Resolution[n-1].Raw; r != "" {
+			display = r
+		}
+	}
+
 	return fmt.Sprintf(
 		"artifact %q has no pinned version%s\n  source: %s\n  fix: replace the floating reference with a specific tag (e.g. v1.2.3) or a digest",
-		a.Reference, hint, src,
+		display, hint, src,
 	)
 }
 
@@ -162,32 +170,6 @@ func funcMap() template.FuncMap {
 				return ref + ":" + ver
 			}
 			return ref
-		},
-
-		// imageRef constructs a fully-qualified OCI reference from an artifact's parsed fields
-		// (registry/repository) combined with the given resolved version (tag or digest).
-		// Use this instead of .Reference in output formats like OCM that require a canonical
-		// registry-qualified reference — short-form names like "nginx:..." lack the registry
-		// domain and will fail OCM's URL resolver.
-		"imageRef": func(a *registry.Artifact, ver string) string {
-			base := ""
-			if a.Registry != "" && a.Repository != "" {
-				base = a.Registry + "/" + a.Repository
-			} else if a.Repository != "" {
-				base = a.Repository
-			} else {
-				// fall back to raw reference, strip scheme, strip any existing tag/digest
-				base = strings.TrimPrefix(a.Reference, "oci://")
-				base = strings.SplitN(base, ":", 2)[0]
-				base = strings.SplitN(base, "@", 2)[0]
-			}
-			if ver == "" {
-				return base
-			}
-			if strings.HasPrefix(ver, "sha256:") {
-				return base + "@" + ver
-			}
-			return base + ":" + ver
 		},
 
 		// contains reports whether substr appears anywhere in s.

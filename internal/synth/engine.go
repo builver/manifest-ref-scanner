@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"text/template"
 
-	"github.com/patri/manifest-ref-scanner/internal/config"
-	"github.com/patri/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 // Apply runs all synthesizer rules against the current registry contents and

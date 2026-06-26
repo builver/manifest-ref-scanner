@@ -3,8 +3,8 @@ package synth
 import (
 	"testing"
 
-	"github.com/patri/manifest-ref-scanner/internal/config"
-	"github.com/patri/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 // buildFluxInstance creates a FluxInstance registry.Resource with the given

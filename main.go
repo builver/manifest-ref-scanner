@@ -1,5 +1,5 @@
 package main
 
-import "github.com/patri/manifest-ref-scanner/cmd"
+import "github.com/builver/manifest-ref-scanner/cmd"
 
 func main() { cmd.Execute() }

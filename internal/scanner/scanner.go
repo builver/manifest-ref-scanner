@@ -1,12 +1,12 @@
 package scanner
 
 import (
-	"github.com/patri/manifest-ref-scanner/internal/config"
-	"github.com/patri/manifest-ref-scanner/internal/expander"
-	"github.com/patri/manifest-ref-scanner/internal/registry"
-	"github.com/patri/manifest-ref-scanner/internal/resolver"
-	"github.com/patri/manifest-ref-scanner/internal/synth"
-	"github.com/patri/manifest-ref-scanner/internal/walker"
+	"github.com/builver/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/expander"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/resolver"
+	"github.com/builver/manifest-ref-scanner/internal/synth"
+	"github.com/builver/manifest-ref-scanner/internal/walker"
 )
 
 // Options controls scan behaviour.

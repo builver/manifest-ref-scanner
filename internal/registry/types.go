@@ -35,8 +35,8 @@ type ResourceRef struct {
 type Artifact struct {
 	// FieldType is the configured name (e.g. "containerImage", "ociArtifact").
 	FieldType string `yaml:"fieldType" json:"fieldType"`
-	// Reference is the full OCI reference string for this artifact (may be
-	// directly extracted from a manifest field or constructed from separate name/tag fields).
+	// Reference is the canonical fully-qualified OCI reference (registry/repository:tag),
+	// without any scheme prefix. Computed from the parsed Registry/Repository/Tag/Digest fields.
 	Reference string `yaml:"reference" json:"reference"`
 	// Parsed components — empty strings mean the value was not present.
 	Registry   string `yaml:"registry,omitempty"   json:"registry,omitempty"`
@@ -67,6 +67,10 @@ type ResolutionStep struct {
 	File      string `yaml:"file,omitempty"      json:"file,omitempty"`
 	// Via is the field path that pointed to the next resource.
 	Via string `yaml:"via,omitempty" json:"via,omitempty"`
+	// Raw is the literal field value extracted from this resource's YAML. Only set on the
+	// terminal step (the resource whose field directly contained the reference value);
+	// empty on intermediate resolver hops.
+	Raw string `yaml:"raw,omitempty" json:"raw,omitempty"`
 	// Synthesized means this resource was not in any file; it was inferred.
 	Synthesized bool `yaml:"synthesized,omitempty" json:"synthesized,omitempty"`
 	// Inline means this resource was nested inside a ResourceSet.

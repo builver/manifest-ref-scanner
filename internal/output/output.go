@@ -3,7 +3,7 @@ package output
 import (
 	"io"
 
-	"github.com/patri/manifest-ref-scanner/internal/registry"
+	"github.com/builver/manifest-ref-scanner/internal/registry"
 	"sigs.k8s.io/yaml"
 )
 

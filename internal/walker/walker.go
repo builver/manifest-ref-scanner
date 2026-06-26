@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/patri/manifest-ref-scanner/internal/helm"
-	"github.com/patri/manifest-ref-scanner/internal/kustomize"
+	"github.com/builver/manifest-ref-scanner/internal/helm"
+	"github.com/builver/manifest-ref-scanner/internal/kustomize"
 	"sigs.k8s.io/yaml"
 )
 

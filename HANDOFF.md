@@ -15,7 +15,7 @@ Key design properties:
 ## Module
 
 ```
-module github.com/patri/manifest-ref-scanner
+module github.com/builver/manifest-ref-scanner
 go 1.25
 ```
 
@@ -541,8 +541,8 @@ package synth
 import (
     "bytes"
     "text/template"
-    "github.com/patri/manifest-ref-scanner/internal/config"
-    "github.com/patri/manifest-ref-scanner/internal/registry"
+    "github.com/builver/manifest-ref-scanner/internal/config"
+    "github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 func Apply(reg *registry.Registry, cfg *config.Config) error {
@@ -641,9 +641,9 @@ package expander
 import (
     "fmt"
     "strings"
-    "github.com/patri/manifest-ref-scanner/internal/config"
-    "github.com/patri/manifest-ref-scanner/internal/patheval"
-    "github.com/patri/manifest-ref-scanner/internal/registry"
+    "github.com/builver/manifest-ref-scanner/internal/config"
+    "github.com/builver/manifest-ref-scanner/internal/patheval"
+    "github.com/builver/manifest-ref-scanner/internal/registry"
     "sigs.k8s.io/yaml"
 )
 
@@ -711,10 +711,10 @@ package resolver
 
 import (
     "fmt"
-    "github.com/patri/manifest-ref-scanner/internal/config"
-    "github.com/patri/manifest-ref-scanner/internal/patheval"
-    "github.com/patri/manifest-ref-scanner/internal/refparser"
-    "github.com/patri/manifest-ref-scanner/internal/registry"
+    "github.com/builver/manifest-ref-scanner/internal/config"
+    "github.com/builver/manifest-ref-scanner/internal/patheval"
+    "github.com/builver/manifest-ref-scanner/internal/refparser"
+    "github.com/builver/manifest-ref-scanner/internal/registry"
 )
 
 func Resolve(reg *registry.Registry, cfg *config.Config) ([]*registry.Artifact, error) {
@@ -969,12 +969,12 @@ Orchestrates the two passes:
 package scanner
 
 import (
-    "github.com/patri/manifest-ref-scanner/internal/config"
-    "github.com/patri/manifest-ref-scanner/internal/expander"
-    "github.com/patri/manifest-ref-scanner/internal/registry"
-    "github.com/patri/manifest-ref-scanner/internal/resolver"
-    "github.com/patri/manifest-ref-scanner/internal/synth"
-    "github.com/patri/manifest-ref-scanner/internal/walker"
+    "github.com/builver/manifest-ref-scanner/internal/config"
+    "github.com/builver/manifest-ref-scanner/internal/expander"
+    "github.com/builver/manifest-ref-scanner/internal/registry"
+    "github.com/builver/manifest-ref-scanner/internal/resolver"
+    "github.com/builver/manifest-ref-scanner/internal/synth"
+    "github.com/builver/manifest-ref-scanner/internal/walker"
 )
 
 type Result struct {
@@ -1026,7 +1026,7 @@ package output
 
 import (
     "io"
-    "github.com/patri/manifest-ref-scanner/internal/registry"
+    "github.com/builver/manifest-ref-scanner/internal/registry"
     "sigs.k8s.io/yaml"
 )
 
@@ -1056,9 +1056,9 @@ import (
     "fmt"
     "os"
     "github.com/spf13/cobra"
-    "github.com/patri/manifest-ref-scanner/internal/config"
-    "github.com/patri/manifest-ref-scanner/internal/output"
-    "github.com/patri/manifest-ref-scanner/internal/scanner"
+    "github.com/builver/manifest-ref-scanner/internal/config"
+    "github.com/builver/manifest-ref-scanner/internal/output"
+    "github.com/builver/manifest-ref-scanner/internal/scanner"
 )
 
 var (
@@ -1111,7 +1111,7 @@ func init() {
 ```go
 package main
 
-import "github.com/patri/manifest-ref-scanner/cmd"
+import "github.com/builver/manifest-ref-scanner/cmd"
 
 func main() { cmd.Execute() }
 ```

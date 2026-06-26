@@ -3,7 +3,7 @@ package scanner
 import (
 	"testing"
 
-	"github.com/patri/manifest-ref-scanner/internal/config"
+	"github.com/builver/manifest-ref-scanner/internal/config"
 )
 
 // loadConfig is a test helper that loads a config file from testdata/example-configs
@@ -36,10 +36,10 @@ func TestScan_Exclude(t *testing.T) {
 		byRaw[art.Reference] = true
 	}
 
-	if !byRaw["oci://registry.example.com/included-repo:v1.0.0-include"] {
+	if !byRaw["registry.example.com/included-repo:v1.0.0-include"] {
 		t.Error("expected artifact from include/ dir to be present")
 	}
-	if byRaw["oci://registry.example.com/excluded-repo:v1.0.0-exclude"] {
+	if byRaw["registry.example.com/excluded-repo:v1.0.0-exclude"] {
 		t.Error("artifact from skip/ dir should not appear — directory was excluded")
 	}
 }
@@ -63,11 +63,11 @@ func TestScan_Exclude_PathGlob(t *testing.T) {
 	}
 
 	// Top-level skip/ is NOT matched by "deep/skip" — its artifact must appear.
-	if !byRaw["oci://registry.example.com/excluded-repo:v1.0.0-exclude"] {
+	if !byRaw["registry.example.com/excluded-repo:v1.0.0-exclude"] {
 		t.Error("top-level skip/ artifact should be present: glob 'deep/skip' should not match it")
 	}
 	// deep/skip/ IS matched — its artifact must be absent.
-	if byRaw["oci://registry.example.com/deep-excluded-repo:v1.0.0-deep-skip"] {
+	if byRaw["registry.example.com/deep-excluded-repo:v1.0.0-deep-skip"] {
 		t.Error("deep/skip/ artifact should not appear — directory matched the path glob")
 	}
 }
@@ -87,7 +87,7 @@ func TestScan_Config_ExtendFieldType(t *testing.T) {
 
 	found := false
 	for _, art := range result.Artifacts {
-		if art.Reference == "oci://registry.example.com/my-artifacts:v2.0.0" {
+		if art.Reference == "registry.example.com/my-artifacts:v2.0.0" {
 			found = true
 			if art.FieldType != "ociArtifact" {
 				t.Errorf("expected fieldType=ociArtifact, got %q", art.FieldType)
@@ -96,7 +96,7 @@ func TestScan_Config_ExtendFieldType(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("expected oci://registry.example.com/my-artifacts:v2.0.0 from ArtifactSource CRD not found")
+		t.Error("expected registry.example.com/my-artifacts:v2.0.0 from ArtifactSource CRD not found")
 	}
 }
 
@@ -109,7 +109,7 @@ func TestScan_Config_ExtendFieldType_DefaultConfigMisses(t *testing.T) {
 		t.Fatalf("Scan: %v", err)
 	}
 	for _, art := range result.Artifacts {
-		if art.Reference == "oci://registry.example.com/my-artifacts:v2.0.0" {
+		if art.Reference == "registry.example.com/my-artifacts:v2.0.0" {
 			t.Error("without the custom config ArtifactSource should not be scanned")
 		}
 	}
@@ -162,7 +162,7 @@ func TestScan_Config_Synthesizer(t *testing.T) {
 	found := false
 	syntheticInChain := false
 	for _, a := range result.Artifacts {
-		if a.Reference != "oci://registry.example.com/gitops/staging:v5.0.0" {
+		if a.Reference != "registry.example.com/gitops/staging:v5.0.0" {
 			continue
 		}
 		found = true
@@ -174,7 +174,7 @@ func TestScan_Config_Synthesizer(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("expected oci://registry.example.com/gitops/staging:v5.0.0 from synthesized OCIRepository not found")
+		t.Error("expected registry.example.com/gitops/staging:v5.0.0 from synthesized OCIRepository not found")
 	}
 	if !syntheticInChain {
 		t.Error("expected a synthesized OCIRepository step in the resolution chain")
@@ -219,7 +219,7 @@ func TestScan_Config_Resolver(t *testing.T) {
 	hasDeploymentStep := false
 	hasBundleStep := false
 	for _, art := range result.Artifacts {
-		if art.Reference != "oci://registry.example.com/app-bundle:v6.0.0" {
+		if art.Reference != "registry.example.com/app-bundle:v6.0.0" {
 			continue
 		}
 		found = true
@@ -234,7 +234,7 @@ func TestScan_Config_Resolver(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("expected oci://registry.example.com/app-bundle:v6.0.0 not found")
+		t.Error("expected registry.example.com/app-bundle:v6.0.0 not found")
 	}
 	if !hasDeploymentStep {
 		t.Error("expected AppDeployment/my-app in resolution chain")
@@ -253,7 +253,7 @@ func TestScan_Config_Resolver_NoConfig(t *testing.T) {
 		t.Fatalf("Scan: %v", err)
 	}
 	for _, art := range result.Artifacts {
-		if art.Reference == "oci://registry.example.com/app-bundle:v6.0.0" {
+		if art.Reference == "registry.example.com/app-bundle:v6.0.0" {
 			t.Error("without custom resolver config the ArtifactBundle artifact should not appear")
 		}
 	}
@@ -277,11 +277,11 @@ func TestScan_Config_InlineExpander(t *testing.T) {
 		byRaw[art.Reference] = true
 	}
 
-	if !byRaw["oci://registry.example.com/myapp:v7.0.0-staging"] {
-		t.Error("missing staging artifact oci://registry.example.com/myapp:v7.0.0-staging")
+	if !byRaw["registry.example.com/myapp:v7.0.0-staging"] {
+		t.Error("missing staging artifact registry.example.com/myapp:v7.0.0-staging")
 	}
-	if !byRaw["oci://registry.example.com/myapp:v7.0.0-prod"] {
-		t.Error("missing production artifact oci://registry.example.com/myapp:v7.0.0-prod")
+	if !byRaw["registry.example.com/myapp:v7.0.0-prod"] {
+		t.Error("missing production artifact registry.example.com/myapp:v7.0.0-prod")
 	}
 }
 
@@ -294,8 +294,8 @@ func TestScan_Config_InlineExpander_NoConfig(t *testing.T) {
 		t.Fatalf("Scan: %v", err)
 	}
 	for _, art := range result.Artifacts {
-		if art.Reference == "oci://registry.example.com/myapp:v7.0.0-staging" ||
-			art.Reference == "oci://registry.example.com/myapp:v7.0.0-prod" {
+		if art.Reference == "registry.example.com/myapp:v7.0.0-staging" ||
+			art.Reference == "registry.example.com/myapp:v7.0.0-prod" {
 			t.Errorf("without custom expander config ApplicationSet artifacts should not appear: %s", art.Reference)
 		}
 	}

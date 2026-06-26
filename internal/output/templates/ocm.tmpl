@@ -12,5 +12,5 @@ components:
     version: "{{ $ver }}"
     access:
       type: ociArtifact
-      imageReference: {{ imageRef . $ver }}
+      imageReference: {{ withVersion .Reference $ver }}
 {{- end }}
