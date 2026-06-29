@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "manifest-ref-scanner",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}",
+            "args": [
+                "--verbose",
+                "--coverage-output", "/tmp/debug-cov.yaml",
+                "../learn/learn-crossplane-zitadel-gke/"
+            ]
+        }
+    ]
+}

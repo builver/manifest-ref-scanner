@@ -36,8 +36,9 @@ type Options struct {
 	// detected Kustomize overlay directory (relative path from scan root).
 	// When non-empty, only matching overlays are rendered; others are skipped.
 	KustomizeOverlayFilter []string
-	// Verbose prints per-phase timing to stderr.
-	Verbose bool
+	// Verbosity controls how much diagnostic output is printed to stderr.
+	// 0 = silent, 1 = phase timings (-v), 2 = per-resource detail (-vv).
+	Verbosity int
 	// CoverageOutput is the file path to write the coverage report to.
 	// When empty, no coverage report is produced.
 	CoverageOutput string
@@ -60,7 +61,7 @@ type Result struct {
 // Pass 2 resolves reference chains and extracts OCI artifact references.
 func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
 	log := func(format string, args ...any) {
-		if opts.Verbose {
+		if opts.Verbosity >= 1 {
 			fmt.Fprintf(os.Stderr, "[scan] "+format+"\n", args...)
 		}
 	}
@@ -75,7 +76,7 @@ func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
 		DisableHelm:            opts.DisableHelm,
 		DisableKustomize:       opts.DisableKustomize,
 		KustomizeOverlayFilter: opts.KustomizeOverlayFilter,
-		Verbose:                opts.Verbose,
+		Verbose:                opts.Verbosity >= 1,
 	})
 	if err != nil {
 		return nil, err
@@ -89,7 +90,12 @@ func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
 
 	// Pass 1b: expand inline resource templates → adds inline resources
 	t = time.Now()
-	if err := expander.Expand(reg, cfg); err != nil {
+	expandLog := func(level int, format string, args ...any) {
+		if level <= opts.Verbosity {
+			fmt.Fprintf(os.Stderr, "[expander] "+format+"\n", args...)
+		}
+	}
+	if err := expander.Expand(reg, cfg, expandLog); err != nil {
 		return nil, err
 	}
 	log("pass1b expander:   %s", time.Since(t).Round(time.Millisecond))
@@ -166,9 +172,16 @@ func unknownKinds(reg *registry.Registry, cfg *config.Config) []coverage.KindSum
 		configured[kindKey{ie.FromKind, ie.FromGroup}] = true
 	}
 
-	suppressed := make(map[kindKey]bool, len(cfg.SuppressedKinds))
+	// suppressedWildcard holds kinds with no Group specified — they match any API group.
+	// suppressedExact holds kinds with an explicit Group (including "" for core/v1).
+	suppressedWildcard := make(map[string]bool)
+	suppressedExact := make(map[kindKey]bool)
 	for _, sk := range cfg.SuppressedKinds {
-		suppressed[kindKey{sk.Kind, sk.Group}] = true
+		if sk.Group == nil {
+			suppressedWildcard[sk.Kind] = true
+		} else {
+			suppressedExact[kindKey{sk.Kind, *sk.Group}] = true
+		}
 	}
 
 	type entry struct {
@@ -182,7 +195,7 @@ func unknownKinds(reg *registry.Registry, cfg *config.Config) []coverage.KindSum
 		}
 		group := registry.GroupFromAPIVersion(res.APIVersion)
 		k := kindKey{res.Kind, group}
-		if configured[k] || suppressed[k] {
+		if configured[k] || suppressedWildcard[k.kind] || suppressedExact[k] {
 			continue
 		}
 		e := byKind[k]

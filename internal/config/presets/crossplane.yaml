@@ -18,6 +18,14 @@ fieldTypes:
         kind: Provider
         path: spec/package
 
+inlineExpanders:
+  - fromGroup: apiextensions.crossplane.io
+    fromKind: Composition
+    resourcesPath: "spec/pipeline[*]/input/resources[*]/template"
+    inputPath: "spec/compositTypeRef"
+    # templateDelimLeft: "${schema."
+    # templateDelimRight: "}"
+
 suppressedKinds:
   - group: apiextensions.crossplane.io
     kind: Composition
@@ -33,3 +41,4 @@ suppressedKinds:
     kind: Lock
   - group: pkg.crossplane.io
     kind: ProviderRevision
+  - kind: ProviderConfig

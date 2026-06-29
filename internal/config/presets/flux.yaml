@@ -1,0 +1,76 @@
+# Flux GitOps Toolkit (fluxcd.io API groups)
+# Covers OCI artifact extraction, chain resolution, and the FluxInstance synthesizer.
+
+fieldTypes:
+  - name: ociArtifact
+    targets:
+      # OCIRepository: spec/url holds the registry+repo; tag or semver range is in spec/ref.
+      # spec/ref/semver is a range selector, not a real tag — stored separately.
+      - group: source.toolkit.fluxcd.io
+        kind: OCIRepository
+        path: spec/url
+        tagPaths:
+          - spec/ref/tag
+        semverPaths:
+          - spec/ref/semver
+      # FluxInstance: spec/distribution/artifact is a fully-qualified OCI reference.
+      - group: fluxcd.controlplane.io
+        kind: FluxInstance
+        path: spec/distribution/artifact
+      # HelmRepository (OCI-based): spec/url carries the registry URL.
+      - group: source.toolkit.fluxcd.io
+        kind: HelmRepository
+        path: spec/url
+
+# FluxInstance.spec.sync causes the Flux Operator to create an OCIRepository named
+# "flux-system" in the same namespace at runtime. Synthesizing it lets resolvers
+# follow sourceRef.name=flux-system back to the real URL and tag.
+synthesizers:
+  - name: fluxInstanceSync
+    fromGroup: fluxcd.controlplane.io
+    fromKind: FluxInstance
+    emits:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: OCIRepository
+      name: flux-system
+      namespace: "{{.metadata.namespace}}"
+      spec:
+        url: "{{.spec.sync.url}}"
+        ref:
+          tag: "{{.spec.sync.ref}}"
+
+resolvers:
+  - name: kustomizationSourceRef
+    fromGroup: kustomize.toolkit.fluxcd.io
+    fromKind: Kustomization
+    path: spec/sourceRef
+    resolves:
+      kind: "{{.kind}}"
+      name: "{{.name}}"
+      namespace: "{{.namespace}}"
+
+  - name: helmReleaseChartRef
+    fromGroup: helm.toolkit.fluxcd.io
+    fromKind: HelmRelease
+    path: spec/chartRef
+    resolves:
+      kind: "{{.kind}}"
+      name: "{{.name}}"
+      namespace: "{{.namespace}}"
+
+  - name: helmReleaseSourceRef
+    fromGroup: helm.toolkit.fluxcd.io
+    fromKind: HelmRelease
+    path: spec/chart/spec/sourceRef
+    resolves:
+      kind: "{{.kind}}"
+      name: "{{.name}}"
+      namespace: "{{.namespace}}"
+
+inlineExpanders:
+  - fromGroup: fluxcd.controlplane.io
+    fromKind: ResourceSet
+    resourcesPath: spec/resources
+    inputsPath: spec/inputs
+    templateDelimLeft: "<<"
+    templateDelimRight: ">>"

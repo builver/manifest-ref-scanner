@@ -2,6 +2,7 @@ package config
 
 import (
 	"embed"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -13,17 +14,17 @@ var presetFS embed.FS
 
 // Preset returns the Config fragment for the named built-in preset.
 // The second return value reports whether the name is known.
-func Preset(name string) (*Config, bool) {
+// An error is returned when the file exists but contains invalid YAML.
+func Preset(name string) (*Config, bool, error) {
 	data, err := presetFS.ReadFile("presets/" + name + ".yaml")
 	if err != nil {
-		return nil, false
+		return nil, false, nil
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		// Preset files are embedded at compile time; a parse error is a programming mistake.
-		panic("built-in preset " + name + " failed to parse: " + err.Error())
+		return nil, true, fmt.Errorf("built-in preset %q has invalid YAML: %w", name, err)
 	}
-	return &cfg, true
+	return &cfg, true, nil
 }
 
 // PresetNames returns all available built-in preset names in sorted order,

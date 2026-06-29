@@ -29,11 +29,14 @@ type Config struct {
 
 // SuppressedKind identifies a resource kind that is known not to carry OCI
 // artifact references and should be omitted from coverage reports.
-// Group must be the exact API group (e.g. "cert-manager.io"); use "" for
-// core (v1) resources such as Namespace or ConfigMap.
+//
+// Group semantics:
+//   - absent (nil) — matches the kind in any API group (wildcard)
+//   - "" (empty string) — matches only core (v1) resources whose API group is ""
+//   - "apps", "cert-manager.io", … — matches that exact API group only
 type SuppressedKind struct {
-	Group string `yaml:"group,omitempty"`
-	Kind  string `yaml:"kind"`
+	Group *string `yaml:"group,omitempty" json:"group,omitempty"`
+	Kind  string  `yaml:"kind"            json:"kind"`
 }
 
 // FieldType defines a named category of reference (e.g. "containerImage")
@@ -102,10 +105,17 @@ type ResolveTarget struct {
 // from a resource that embeds child resources (e.g. Flux ResourceSet) and
 // materialize one expanded copy per input entry.
 type InlineExpander struct {
-	FromGroup          string `yaml:"fromGroup"`
-	FromKind           string `yaml:"fromKind"`
-	ResourcesPath      string `yaml:"resourcesPath"`      // e.g. spec/resources
-	InputsPath         string `yaml:"inputsPath"`         // e.g. spec/inputs
-	TemplateDelimLeft  string `yaml:"templateDelimLeft"`  // e.g. "<<"
-	TemplateDelimRight string `yaml:"templateDelimRight"` // e.g. ">>"
+	FromGroup     string `yaml:"fromGroup"`
+	FromKind      string `yaml:"fromKind"`
+	ResourcesPath string `yaml:"resourcesPath"` // supports multiple [*] wildcards
+	InputsPath    string `yaml:"inputsPath"`
+	// InputPrefix is a regex matched at the start of each substitution key.
+	// The matched portion is stripped before the key is looked up in the input map.
+	// When empty: key is tried as-is first; if not found the first dot-segment
+	// (e.g. "inputs." in "inputs.name") is stripped as fallback.
+	InputPrefix string `yaml:"inputPrefix"`
+	// TemplateDelimLeft and TemplateDelimRight must both be set or both be empty.
+	// When empty no substitution is performed and templates are used verbatim.
+	TemplateDelimLeft  string `yaml:"templateDelimLeft"`
+	TemplateDelimRight string `yaml:"templateDelimRight"`
 }

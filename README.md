@@ -158,7 +158,6 @@ The following drawbacks are known and tracked for future work:
 
 ### Issues
  - test against argocd repo
- - test against zitadel crossplain repo
  - implement different ressource kinds (container-image, oci-manifest, oci-helm, crossplane-package)
  - implement non oci artifacts (github urls, there is already value type string for that)
  - add optional semver range and floating tag resolution
@@ -167,3 +166,8 @@ The following drawbacks are known and tracked for future work:
  - implement more default knowledge about other tools (crossplane, argocd, external-certs, external-secrets etc.)
  - helm chart still have a high chance to miss something if they have config options like "enable postgres"
  - helm charts in kustomization.yamls are resolved but not added itself as dependency.
+
+
+ - test against zitadel crossplain repo
+ Provider upject-zitadel missing
+ Configurations package (zitadel-workload)

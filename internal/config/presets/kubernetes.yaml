@@ -1,0 +1,100 @@
+# Standard Kubernetes workload image extraction and non-artifact kind suppression.
+# Covers the built-in API groups shipped with every Kubernetes cluster.
+
+fieldTypes:
+  - name: containerImage
+    targets:
+      # v1 (core group)
+      - kind: Pod
+        path: spec/containers[*]/image
+      - kind: Pod
+        path: spec/initContainers[*]/image
+      - kind: Pod
+        path: spec/ephemeralContainers[*]/image
+      # apps/v1
+      - group: apps
+        kind: Deployment
+        path: spec/template/spec/containers[*]/image
+      - group: apps
+        kind: Deployment
+        path: spec/template/spec/initContainers[*]/image
+      - group: apps
+        kind: DaemonSet
+        path: spec/template/spec/containers[*]/image
+      - group: apps
+        kind: DaemonSet
+        path: spec/template/spec/initContainers[*]/image
+      - group: apps
+        kind: StatefulSet
+        path: spec/template/spec/containers[*]/image
+      - group: apps
+        kind: StatefulSet
+        path: spec/template/spec/initContainers[*]/image
+      - group: apps
+        kind: ReplicaSet
+        path: spec/template/spec/containers[*]/image
+      # batch/v1
+      - group: batch
+        kind: Job
+        path: spec/template/spec/containers[*]/image
+      - group: batch
+        kind: Job
+        path: spec/template/spec/initContainers[*]/image
+      - group: batch
+        kind: CronJob
+        path: spec/jobTemplate/spec/template/spec/containers[*]/image
+      - group: batch
+        kind: CronJob
+        path: spec/jobTemplate/spec/template/spec/initContainers[*]/image
+
+suppressedKinds:
+  # v1 (core group) — group omitted = wildcard, safe since these kinds only exist in core
+  - kind: ConfigMap
+  - kind: Endpoints
+  - kind: LimitRange
+  - kind: Namespace
+  - kind: Node
+  - kind: PersistentVolume
+  - kind: PersistentVolumeClaim
+  - kind: ResourceQuota
+  - kind: Secret
+  - kind: Service
+  - kind: ServiceAccount
+  # apps/v1
+  - group: apps
+    kind: ControllerRevision
+  # networking.k8s.io
+  - group: networking.k8s.io
+    kind: Ingress
+  - group: networking.k8s.io
+    kind: IngressClass
+  - group: networking.k8s.io
+    kind: NetworkPolicy
+  # rbac.authorization.k8s.io
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  - group: rbac.authorization.k8s.io
+    kind: Role
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+  # storage.k8s.io
+  - group: storage.k8s.io
+    kind: StorageClass
+  - group: storage.k8s.io
+    kind: VolumeAttachment
+  # policy
+  - group: policy
+    kind: PodDisruptionBudget
+  # autoscaling
+  - group: autoscaling
+    kind: HorizontalPodAutoscaler
+  # apiextensions.k8s.io
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+  # admissionregistration.k8s.io
+  - group: admissionregistration.k8s.io
+    kind: MutatingWebhookConfiguration
+  - group: admissionregistration.k8s.io
+    kind: ValidatingWebhookConfiguration

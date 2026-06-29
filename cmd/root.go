@@ -26,7 +26,7 @@ var (
 	formatConfigFile string
 	rawArgs          []string
 	excludeRefGlobs  []string
-	verbose          bool
+	verbosity        int
 	coverageOutput   string
 	noPresets        []string
 )
@@ -37,12 +37,12 @@ var rootCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := config.DefaultConfig()
+		cfg := &config.Config{}
 
 		// Apply all built-in presets, skipping any listed in --no-preset.
 		disabled := make(map[string]bool, len(noPresets))
 		for _, name := range noPresets {
-			if _, ok := config.Preset(name); !ok {
+			if _, ok, _ := config.Preset(name); !ok {
 				return fmt.Errorf("unknown preset %q; available: %s", name, strings.Join(config.PresetNames(), ", "))
 			}
 			disabled[name] = true
@@ -51,7 +51,10 @@ var rootCmd = &cobra.Command{
 			if disabled[name] {
 				continue
 			}
-			preset, _ := config.Preset(name)
+			preset, _, err := config.Preset(name)
+			if err != nil {
+				return fmt.Errorf("preset %q: %w", name, err)
+			}
 			cfg = config.Merge(cfg, preset)
 		}
 
@@ -69,7 +72,7 @@ var rootCmd = &cobra.Command{
 			DisableHelm:            disableHelm,
 			DisableKustomize:       disableKustomize,
 			KustomizeOverlayFilter: kustomizeOverlayFilter,
-			Verbose:                verbose,
+			Verbosity:              verbosity,
 			CoverageOutput:         coverageOutput,
 		}
 
@@ -192,6 +195,6 @@ func init() {
 	rootCmd.Flags().StringVar(&formatConfigFile, "format-config", "", "path to a custom output format config YAML file (overrides --format)")
 	rootCmd.Flags().StringArrayVar(&rawArgs, "arg", nil, "template argument as key=value (repeatable); overrides args defined in --format-config or built-in defaults")
 	rootCmd.Flags().StringArrayVar(&excludeRefGlobs, "exclude-ref", nil, "exclude artifacts whose reference contains this substring (repeatable)")
-	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print per-phase timing to stderr")
+	rootCmd.Flags().CountVarP(&verbosity, "verbose", "v", "print per-phase timing (-v) and per-resource expander detail (-vv)")
 	rootCmd.Flags().StringVar(&coverageOutput, "coverage-output", "", "write coverage report (unresolved chains, unknown kinds, heuristic hits) to this file")
 }
