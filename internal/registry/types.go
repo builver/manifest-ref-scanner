@@ -31,7 +31,7 @@ type ResourceRef struct {
 	File      string
 }
 
-// Artifact is a discovered OCI reference with its full resolution chain.
+// Artifact is a discovered OCI reference with all its resolution sources.
 type Artifact struct {
 	// FieldType is the configured name (e.g. "containerImage", "ociArtifact").
 	FieldType string `yaml:"fieldType" json:"fieldType"`
@@ -46,9 +46,11 @@ type Artifact struct {
 	// Ref holds non-tag qualifiers like semver, digest, etc.
 	Ref map[string]string `yaml:"ref,omitempty" json:"ref,omitempty"`
 
-	// Resolution is the ordered chain of resources traversed to find this artifact.
-	// Index 0 is always the resource that directly contains the reference value.
-	Resolution []ResolutionStep `yaml:"resolution" json:"resolution"`
+	// Sources lists every place this reference was found. Each entry holds the full
+	// resolution chain for that occurrence (index 0 = first resolver hop, last = the
+	// resource whose field directly contained the reference value). Multiple sources
+	// occur when the same reference appears in independent manifests or chains.
+	Sources []ArtifactSource `yaml:"sources" json:"sources"`
 
 	// KustomizeOverlays lists the overlay directories (from kustomize build) that
 	// produced this artifact. Multiple entries occur when different overlays render
@@ -57,6 +59,13 @@ type Artifact struct {
 
 	// Warnings are non-fatal issues encountered while resolving this artifact.
 	Warnings []string `yaml:"warnings,omitempty" json:"warnings,omitempty"`
+}
+
+// ArtifactSource holds one resolution chain for an artifact.
+// The named "chain" key avoids the `- -` double-dash YAML notation that would
+// appear if [][]ResolutionStep were serialised directly.
+type ArtifactSource struct {
+	Chain []ResolutionStep `yaml:"chain" json:"chain"`
 }
 
 // ResolutionStep records one hop in the reference chain.
@@ -78,3 +87,4 @@ type ResolutionStep struct {
 	// Input is the ResourceSet input that produced this resource.
 	Input map[string]interface{} `yaml:"input,omitempty" json:"input,omitempty"`
 }
+

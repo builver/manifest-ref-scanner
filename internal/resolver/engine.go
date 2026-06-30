@@ -233,10 +233,10 @@ func buildArtifact(fieldType, valueType, raw, tagHint string, extraRef map[strin
 	}
 
 	art := &registry.Artifact{
-		FieldType:  fieldType,
-		Reference:  raw,
-		Ref:        extraRef,
-		Resolution: chain,
+		FieldType: fieldType,
+		Reference: raw,
+		Ref:       extraRef,
+		Sources:   []registry.ArtifactSource{{Chain: chain}},
 	}
 	if kustomizeDir != "" {
 		art.KustomizeOverlays = []string{kustomizeDir}
@@ -304,16 +304,20 @@ func renderField(tmpl string, data map[string]interface{}) string {
 	return result
 }
 
-// dedup collapses artifacts with identical (reference, fieldType) keys, keeping
-// the entry with the longest resolution chain (richest context).
-// KustomizeOverlays from all duplicate entries are merged into the survivor.
+// dedup collapses artifacts with identical (reference, fieldType) keys into one
+// artifact. All unique resolution chains are merged into Sources. Chains are
+// considered identical when their kind/name/namespace/file/inline/synthesized/via
+// fingerprints match — the Input map is excluded because it varies per template
+// expansion but represents the same structural path. Kustomize overlays from all
+// duplicates are merged. When the same reference appears under different fieldTypes,
+// a warning is printed to stderr (likely a misconfiguration).
 func dedup(arts []*registry.Artifact) []*registry.Artifact {
 	type key struct{ ref, fieldType string }
 	best := make(map[key]*registry.Artifact, len(arts))
-	// overlaysSeen tracks which overlay dirs have been recorded for each key,
-	// preserving order of first occurrence.
+	chainSeen := make(map[key]map[string]bool)
 	overlaysSeen := make(map[key]map[string]bool)
 	overlaysOrdered := make(map[key][]string)
+	refFieldTypes := make(map[string][]string) // ref → fieldTypes seen (for cross-type warning)
 	var order []key
 
 	mergeOverlays := func(k key, dirs []string) {
@@ -330,13 +334,37 @@ func dedup(arts []*registry.Artifact) []*registry.Artifact {
 
 	for _, art := range arts {
 		k := key{ref: art.Reference, fieldType: art.FieldType}
-		if existing, ok := best[k]; !ok {
+		ck := chainKey(art.Sources[0].Chain)
+
+		// Track fieldTypes seen per reference for cross-type warning.
+		ftList := refFieldTypes[art.Reference]
+		found := false
+		for _, ft := range ftList {
+			if ft == art.FieldType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			refFieldTypes[art.Reference] = append(ftList, art.FieldType)
+		}
+
+		if _, ok := best[k]; !ok {
 			order = append(order, k)
 			best[k] = art
-		} else if len(art.Resolution) > len(existing.Resolution) {
-			best[k] = art
+			chainSeen[k] = map[string]bool{ck: true}
+		} else if !chainSeen[k][ck] {
+			chainSeen[k][ck] = true
+			best[k].Sources = append(best[k].Sources, art.Sources[0])
 		}
 		mergeOverlays(k, art.KustomizeOverlays)
+	}
+
+	// Warn about the same reference appearing under multiple fieldTypes.
+	for ref, fts := range refFieldTypes {
+		if len(fts) > 1 {
+			fmt.Fprintf(os.Stderr, "warn: reference %q found under multiple fieldTypes %v — likely a misconfiguration\n", ref, fts)
+		}
 	}
 
 	result := make([]*registry.Artifact, 0, len(order))
@@ -346,4 +374,16 @@ func dedup(arts []*registry.Artifact) []*registry.Artifact {
 		result = append(result, art)
 	}
 	return result
+}
+
+// chainKey builds a deterministic fingerprint for a resolution chain.
+// The Input map is intentionally excluded — two chains differing only in
+// template input values represent the same structural path.
+func chainKey(chain []registry.ResolutionStep) string {
+	parts := make([]string, 0, len(chain))
+	for _, s := range chain {
+		parts = append(parts, fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%v\x00%v\x00%s",
+			s.Kind, s.Namespace, s.Name, s.File, s.Synthesized, s.Inline, s.Via))
+	}
+	return strings.Join(parts, "\x01")
 }

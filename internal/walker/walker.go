@@ -224,8 +224,9 @@ func Walk(root string, opts Options) ([]ParsedDoc, error) {
 				fmt.Fprintf(os.Stderr, "[scan] kustomize build %s: %s\n", o.dir, elapsed)
 			}
 			overlayDocs, _ := parseBytes(rendered, filepath.Join(o.dir, o.kfile))
+			relDir, _ := filepath.Rel(root, o.dir)
 			for i := range overlayDocs {
-				overlayDocs[i].KustomizeDir = o.dir
+				overlayDocs[i].KustomizeDir = relDir
 			}
 			results <- renderResult{docs: overlayDocs}
 		}(o)

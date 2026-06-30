@@ -69,9 +69,11 @@ func TestScan_FluxInstanceSynthesis(t *testing.T) {
 		if art.Reference != "ghcr.io/example/my-gitops:latest" {
 			continue
 		}
-		for _, step := range art.Resolution {
-			if step.Kind == "OCIRepository" && step.Name == "flux-system" && step.Synthesized {
-				found = true
+		for _, src := range art.Sources {
+			for _, step := range src.Chain {
+				if step.Kind == "OCIRepository" && step.Name == "flux-system" && step.Synthesized {
+					found = true
+				}
 			}
 		}
 	}
@@ -94,9 +96,11 @@ func TestScan_ResourceSetExpansion(t *testing.T) {
 		}
 		found = true
 		inlineStep := false
-		for _, step := range art.Resolution {
-			if step.Kind == "OCIRepository" && step.Name == "inline-chart" && step.Inline {
-				inlineStep = true
+		for _, src := range art.Sources {
+			for _, step := range src.Chain {
+				if step.Kind == "OCIRepository" && step.Name == "inline-chart" && step.Inline {
+					inlineStep = true
+				}
 			}
 		}
 		if !inlineStep {
@@ -240,8 +244,8 @@ func TestScan_KustomizeOverlaysField(t *testing.T) {
 			return
 		}
 		got := art.KustomizeOverlays[0]
-		if got != "testdata/kustomize-simple" {
-			t.Errorf("KustomizeOverlays[0] = %q, want testdata/kustomize-simple", got)
+		if got != "." {
+			t.Errorf("KustomizeOverlays[0] = %q, want \".\" (overlay is the scan root)", got)
 		}
 		return
 	}

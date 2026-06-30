@@ -167,9 +167,11 @@ func TestScan_Config_Synthesizer(t *testing.T) {
 			continue
 		}
 		found = true
-		for _, step := range a.Resolution {
-			if step.Kind == "OCIRepository" && step.Synthesized {
-				syntheticInChain = true
+		for _, src := range a.Sources {
+			for _, step := range src.Chain {
+				if step.Kind == "OCIRepository" && step.Synthesized {
+					syntheticInChain = true
+				}
 			}
 		}
 	}
@@ -217,12 +219,14 @@ func TestScan_Config_Resolver(t *testing.T) {
 			continue
 		}
 		found = true
-		for _, step := range art.Resolution {
-			if step.Kind == "AppDeployment" && step.Name == "my-app" {
-				hasDeploymentStep = true
-			}
-			if step.Kind == "ArtifactBundle" && step.Name == "my-bundle" {
-				hasBundleStep = true
+		for _, src := range art.Sources {
+			for _, step := range src.Chain {
+				if step.Kind == "AppDeployment" && step.Name == "my-app" {
+					hasDeploymentStep = true
+				}
+				if step.Kind == "ArtifactBundle" && step.Name == "my-bundle" {
+					hasBundleStep = true
+				}
 			}
 		}
 	}

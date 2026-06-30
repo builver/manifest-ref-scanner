@@ -85,8 +85,8 @@ func semverErrorMsg(a *registry.Artifact) string {
 	}
 
 	src := "unknown"
-	if len(a.Resolution) > 0 {
-		s := a.Resolution[0]
+	if len(a.Sources) > 0 && len(a.Sources[0].Chain) > 0 {
+		s := a.Sources[0].Chain[0]
 		src = fmt.Sprintf("%s %q", s.Kind, s.Name)
 		if s.Namespace != "" {
 			src += " in namespace " + s.Namespace
@@ -98,9 +98,12 @@ func semverErrorMsg(a *registry.Artifact) string {
 
 	// Show the raw literal from the source file so the user can grep for it directly.
 	display := a.Reference
-	if n := len(a.Resolution); n > 0 {
-		if r := a.Resolution[n-1].Raw; r != "" {
-			display = r
+	if len(a.Sources) > 0 {
+		chain := a.Sources[0].Chain
+		if n := len(chain); n > 0 {
+			if r := chain[n-1].Raw; r != "" {
+				display = r
+			}
 		}
 	}
 
