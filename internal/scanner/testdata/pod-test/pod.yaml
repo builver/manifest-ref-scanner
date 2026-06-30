@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug
+  namespace: default
+spec:
+  containers:
+    - name: debug
+      image: busybox:1.36
+  initContainers:
+    - name: init
+      image: alpine:3.18

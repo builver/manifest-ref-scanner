@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/builver/manifest-ref-scanner/internal/config"
@@ -109,6 +110,35 @@ func TestScan_ResourceSetExpansion(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected artifact ghcr.io/example/inline-chart:v3.0.0 (only reachable via ResourceSet expansion)")
+	}
+}
+
+// TestScan_Pod_ContainerImagesDetected verifies that container images from a plain
+// Pod resource (apiVersion: v1, core group) are extracted correctly and appear in
+// the artifact output with the containerImage fieldType.
+func TestScan_Pod_ContainerImagesDetected(t *testing.T) {
+	result, err := Scan("testdata/pod-test", config.DefaultConfig(), DefaultOptions())
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	// Short-form image references like "busybox:1.36" are normalized to their
+	// canonical docker.io form by the ref parser. Use substring matching.
+	wantSubstrings := []string{"busybox:1.36", "alpine:3.18"}
+	for _, sub := range wantSubstrings {
+		found := false
+		for _, art := range result.Artifacts {
+			if strings.Contains(art.Reference, sub) {
+				if art.FieldType != "containerImage" {
+					t.Errorf("artifact containing %q has fieldType %q, want containerImage", sub, art.FieldType)
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("artifact containing %q not found in output (pod container images not detected)", sub)
+		}
 	}
 }
 

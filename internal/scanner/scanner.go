@@ -117,9 +117,11 @@ func Scan(root string, cfg *config.Config, opts Options) (*Result, error) {
 	log("total:             %s", time.Since(total).Round(time.Millisecond))
 
 	cov := buildCoverage(reg, cfg, unresolved, artifacts)
-	if opts.CoverageOutput != "" {
+	if opts.CoverageOutput != "" || opts.Verbosity >= 1 {
 		enrichCoverage(cov, reg, artifacts)
 	}
+	log("coverage:          %d unknown kinds, %d unresolved chains, %d heuristic hits",
+		len(cov.UnknownKinds), len(cov.UnresolvedChains), len(cov.HeuristicHits))
 
 	return &Result{Artifacts: artifacts, Coverage: cov}, nil
 }
