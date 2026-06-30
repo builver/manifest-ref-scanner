@@ -161,8 +161,7 @@ The following drawbacks are known and tracked for future work:
  - implement different ressource kinds (container-image, oci-manifest, oci-helm, crossplane-package)
  - implement non oci artifacts (github urls, there is already value type string for that)
  - add optional semver range and floating tag resolution
- - test resourceset subresources rendering (e.g. a pod in resourceset)
- - test/implement resourceset looping logic 
+ - test resourceset looping logic 
  - implement more default knowledge about other tools (crossplane, argocd, external-certs, external-secrets etc.)
  - helm chart still have a high chance to miss something if they have config options like "enable postgres"
  - helm charts in kustomization.yamls are resolved but not added itself as dependency.
@@ -171,3 +170,7 @@ The following drawbacks are known and tracked for future work:
  - test against zitadel crossplain repo
  Provider upject-zitadel missing
  Configurations package (zitadel-workload)
+
+ - missing input config validation (e.g. no path given, random fields that do not exist)
+ - warning outputed into yaml but not cli (invalid reference format)
+ - crossplane configuration has multiple artifacts in one resource and needs support for list input, works but misses some entries

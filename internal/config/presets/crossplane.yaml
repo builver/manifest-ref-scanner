@@ -17,14 +17,31 @@ fieldTypes:
       - group: pkg.crossplane.io
         kind: Provider
         path: spec/package
+      # - group: meta.pkg.crossplane.io
+      #   kind: Configuration
+      #   path: spec/dependsOn[*]/provider
+      #   semverPaths:
+      #     - spec/dependsOn[*]/version
+  - name: helmChart
+    valueType: string
+    targets:
+      - group: helm.m.crossplane.io
+        kind: Release
+        path: spec/forProvider/chart/repository
+        tagPaths: [spec/forProvider/chart/version]
+
 
 inlineExpanders:
   - fromGroup: apiextensions.crossplane.io
     fromKind: Composition
     resourcesPath: "spec/pipeline[*]/input/resources[*]/template"
-    inputPath: "spec/compositTypeRef"
+    # inputPath: "/"
     # templateDelimLeft: "${schema."
     # templateDelimRight: "}"
+
+
+
+
 
 suppressedKinds:
   - group: apiextensions.crossplane.io
@@ -42,3 +59,6 @@ suppressedKinds:
   - group: pkg.crossplane.io
     kind: ProviderRevision
   - kind: ProviderConfig
+  - kind: ClusterProviderConfig
+  - group: protection.crossplane.io
+    kind: Usage
